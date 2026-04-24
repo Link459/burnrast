@@ -1,5 +1,6 @@
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_video.h>
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 
@@ -20,6 +21,27 @@ const static Color WHITE = {
     .b = 255,
 };
 
+const static Color RED = {
+    .r = 255,
+    .g = 0,
+    .b = 0,
+};
+const static Color GREEN = {
+    .r = 0,
+    .g = 255,
+    .b = 0,
+};
+const static Color BLUE = {
+    .r = 0,
+    .g = 0,
+    .b = 255,
+};
+const static Color YELLOW = {
+    .r = 0,
+    .g = 255,
+    .b = 255,
+};
+
 void update(SDL_Surface *canvas) {
   uint32_t *buffer = canvas->pixels;
   for (uint32_t y = 0; y < canvas->h; y++) {
@@ -31,11 +53,28 @@ void update(SDL_Surface *canvas) {
   }
 }
 
-void set_color(SDL_Surface *canvas, uint32_t x, uint32_t y, Color color) {
+void set_color(SDL_Surface *canvas, uint32_t x, uint32_t y,
+               const Color *color) {
+  if (x > canvas->w || y > canvas->h) {
+    return;
+  }
   uint32_t *buffer = canvas->pixels;
   uint32_t offset = (canvas->h - y) * canvas->w + x;
-  uint32_t mapped_color = SDL_MapSurfaceRGB(canvas, color.r, color.g, color.b);
+  uint32_t mapped_color =
+      SDL_MapSurfaceRGB(canvas, color->r, color->g, color->b);
   buffer[offset] = mapped_color;
+}
+
+void line(SDL_Surface *canvas, int32_t ax, int32_t ay, int32_t bx, int32_t by,
+          const Color *color) {
+  for (float t = 0.0; t < 1.0; t += 0.02) {
+    // int32_t new_x = ax + (int32_t)(t * (float)(bx - ax));
+    // int32_t new_y = ay + (int32_t)(t * (float)(by - ay));
+
+    int32_t new_x = round(ax + (bx - ax) * t);
+    int32_t new_y = round(ay + (by - ay) * t);
+    set_color(canvas, new_x, new_y, color);
+  }
 }
 
 int main() {
@@ -56,9 +95,14 @@ int main() {
   int ax = 7, ay = 3;
   int bx = 12, by = 37;
   int cx = 62, cy = 53;
-  set_color(canvas, ax, ay, WHITE);
-  set_color(canvas, bx, by, WHITE);
-  set_color(canvas, cx, cy, WHITE);
+  // set_color(canvas, ax, ay, &WHITE);
+  // set_color(canvas, bx, by, &WHITE);
+  // set_color(canvas, cx, cy, &WHITE);
+
+  line(canvas, ax, ay, bx, by, &BLUE);
+  line(canvas, cx, cy, bx, by, &GREEN);
+  line(canvas, cx, cy, ax, ay, &YELLOW);
+  line(canvas, ax, ay, cx, cy, &RED);
   SDL_UnlockSurface(canvas);
 
   while (run) {

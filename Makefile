@@ -1,5 +1,5 @@
 build:
-	gcc src/main.c -l SDL3 -o burnrast
+	gcc src/main.c -lm -l SDL3 -o burnrast
 
 run: build
 	./burnrast
