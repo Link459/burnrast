@@ -1,5 +1,15 @@
+LDFLAGS = -lSDL3 -lm
+CC = gcc
+SRCS = src/main.c
+
 build:
-	gcc src/main.c -lm -l SDL3 -o burnrast
+	$(CC) $(SRCS) $(LDFLAGS) -o burnrast
+
+release:
+	$(CC) $(SRCS) $(LDFLAGS) -O2 -o burnrast
 
 run: build
 	./burnrast
+
+
+.PHONY: build release run
