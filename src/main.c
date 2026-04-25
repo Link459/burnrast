@@ -1,5 +1,6 @@
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_video.h>
+#include <assert.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -120,6 +121,55 @@ void random_lines(SDL_Surface *canvas) {
   }
 }
 
+void draw_model(const char *filepath) {
+  uint32_t vertex_count = 0;
+  uint32_t face_count = 0;
+
+  FILE *file = fopen(filepath, "r");
+
+  ssize_t read = 0;
+  size_t len = 0;
+  char *line = NULL;
+
+  while ((read = getline(&line, &len, file) != -1)) {
+    if (line[0] == 'v' && line[1] == ' ') {
+      vertex_count++;
+    } else if (line[0] == 'f') {
+      face_count++;
+    }
+  }
+
+  float *vertices = (float *)malloc(vertex_count * 3 * sizeof(float));
+  int *face_vertices = (int *)malloc(face_count * sizeof(int));
+  uint32_t current_vertex = 0;
+
+  fseek(file, 0, SEEK_SET);
+  while ((read = getline(&line, &len, file) != -1)) {
+    if (line[0] == 'v' && line[1] == ' ') {
+      char *new_line = line + 2;
+      float pos0;
+      float pos1;
+      float pos2;
+      if (sscanf(new_line, "%f %f %f", &pos0, &pos1, &pos2) != 3) {
+        printf("Failed to parse line: %s", line);
+        exit(0);
+      }
+      printf("%f %f %f\n", pos0, pos1, pos2);
+      vertices[current_vertex + 0] = pos0;
+      vertices[current_vertex + 1] = pos1;
+      vertices[current_vertex + 2] = pos2;
+      current_vertex += 3;
+    } else if (line[0] == 'f' && line[2]) {
+    }
+  }
+
+  printf("Vertex count: %d\n", vertex_count);
+
+  // fclose(file);
+  // free(vertices);
+  // free(face_vertices);
+}
+
 int main() {
   SDL_Init(SDL_INIT_VIDEO);
 
@@ -144,6 +194,7 @@ int main() {
   line(canvas, cx, cy, ax, ay, &YELLOW);
   line(canvas, ax, ay, cx, cy, &RED);
 
+  draw_model("assets/diablo3_pose.obj");
   // random_lines(canvas);
   SDL_UnlockSurface(canvas);
 
