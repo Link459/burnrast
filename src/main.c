@@ -93,6 +93,7 @@ void line(SDL_Surface *canvas, int32_t ax, int32_t ay, int32_t bx, int32_t by,
   }
 
   float y = ay;
+  // int ierror = 0;
   for (int32_t x = ax; x <= bx; x++) {
     // float t = (x - ax) / (float)(bx - ax);
     // int32_t y = round(ay + (by - ay) * t);
@@ -102,12 +103,16 @@ void line(SDL_Surface *canvas, int32_t ax, int32_t ay, int32_t bx, int32_t by,
     } else {
       set_color(canvas, x, y, color);
     }
+
     y += (by - ay) / (float)(bx - ax);
+    // ierror += 2 * abs(by - ay);
+    // y += (by > ay ? 1 : -1) * (ierror > bx - ax);
+    // ierror -= 2 * abs(bx - ax) * (ierror > bx - ax);
   }
 }
 
 void random_lines(SDL_Surface *canvas) {
-  for (uint32_t i = 0; i < (1 << 12); i++) {
+  for (uint32_t i = 0; i < (1 << 20); i++) {
     int32_t ax = rand() % canvas->w;
     int32_t bx = rand() % canvas->w;
     int32_t ay = rand() % canvas->h;
@@ -121,12 +126,24 @@ void random_lines(SDL_Surface *canvas) {
   }
 }
 
-void project(const SDL_Surface *surface, const float *x, int32_t *res) {
-  res[0] = (x[0] + 1.0) * surface->w / 2;
-  res[1] = (x[1] + 1.0) * surface->h / 2;
+void draw_test_triangle(SDL_Surface *canvas) {
+  int ax = 7, ay = 3;
+  int bx = 12, by = 37;
+  int cx = 62, cy = 53;
+  line(canvas, ax, ay, bx, by, &BLUE);
+  line(canvas, cx, cy, bx, by, &GREEN);
+  line(canvas, cx, cy, ax, ay, &YELLOW);
+  line(canvas, ax, ay, cx, cy, &RED);
 }
 
-void draw_model(SDL_Surface *canvas, const char *filepath) {
+typedef struct {
+  float *vertices;
+  int *face_vertices;
+  uint32_t vertex_count;
+  uint32_t face_count;
+} Model;
+
+Model load_model(const char *filepath) {
   uint32_t vertex_count = 0;
   uint32_t face_count = 0;
 
@@ -160,7 +177,7 @@ void draw_model(SDL_Surface *canvas, const char *filepath) {
         printf("Failed to parse line: %s", current_line);
         exit(0);
       }
-      printf("%f %f %f\n", pos0, pos1, pos2);
+      // printf("%f %f %f\n", pos0, pos1, pos2);
       vertices[current_vertex + 0] = pos0;
       vertices[current_vertex + 1] = pos1;
       vertices[current_vertex + 2] = pos2;
@@ -175,13 +192,13 @@ void draw_model(SDL_Surface *canvas, const char *filepath) {
         printf("Failed to parse line: %s", current_line);
       }
 
-      printf("face: %u %u %u\n", pos[0], pos[1], pos[2]);
+      // printf("face: %u %u %u\n", pos[0], pos[1], pos[2]);
 
       // -1 as .obj indices start at 1
       // * 3 as there are 3 floats per vertex/face index
-      face_vertices[current_face + 0] = (pos[0] - 1) * 3;
-      face_vertices[current_face + 1] = (pos[1] - 1) * 3;
-      face_vertices[current_face + 2] = (pos[2] - 1) * 3;
+      face_vertices[current_face + 0] = (pos[0] - 1);
+      face_vertices[current_face + 1] = (pos[1] - 1);
+      face_vertices[current_face + 2] = (pos[2] - 1);
       current_face += 3;
     }
   }
@@ -191,10 +208,31 @@ void draw_model(SDL_Surface *canvas, const char *filepath) {
 
   fclose(file);
 
-  for (uint32_t i = 0; i < face_count; i++) {
-    float *a = &vertices[face_vertices[i * 3 + 0]];
-    float *b = &vertices[face_vertices[i * 3 + 1]];
-    float *c = &vertices[face_vertices[i * 3 + 2]];
+  Model model = {
+      .vertices = vertices,
+      .face_vertices = face_vertices,
+      .vertex_count = vertex_count,
+      .face_count = face_count,
+  };
+
+  return model;
+}
+
+void free_model(Model *model) {
+  free(model->vertices);
+  free(model->face_vertices);
+}
+
+void project(const SDL_Surface *surface, const float *x, int32_t *res) {
+  res[0] = (x[0] + 1.0) * surface->w / 2;
+  res[1] = (x[1] + 1.0) * surface->h / 2;
+}
+
+void draw_model(SDL_Surface *canvas, Model *model) {
+  for (uint32_t i = 0; i < model->face_count; i++) {
+    float *a = &model->vertices[model->face_vertices[i * 3 + 0] * 3];
+    float *b = &model->vertices[model->face_vertices[i * 3 + 1] * 3];
+    float *c = &model->vertices[model->face_vertices[i * 3 + 2] * 3];
 
     int32_t a_proj[2];
     int32_t b_proj[2];
@@ -207,9 +245,6 @@ void draw_model(SDL_Surface *canvas, const char *filepath) {
     line(canvas, b_proj[0], b_proj[1], c_proj[0], c_proj[1], &RED);
     line(canvas, c_proj[0], c_proj[1], a_proj[0], a_proj[1], &RED);
   }
-
-  free(vertices);
-  free(face_vertices);
 }
 
 int main() {
@@ -224,30 +259,25 @@ int main() {
   SDL_LockSurface(canvas);
 
   SDL_ClearSurface(canvas, 0.0, 0.0, 0.0, 1.0);
-  int ax = 7, ay = 3;
-  int bx = 12, by = 37;
-  int cx = 62, cy = 53;
-  // set_color(canvas, ax, ay, &WHITE);
-  // set_color(canvas, bx, by, &WHITE);
-  // set_color(canvas, cx, cy, &WHITE);
 
-  line(canvas, ax, ay, bx, by, &BLUE);
-  line(canvas, cx, cy, bx, by, &GREEN);
-  line(canvas, cx, cy, ax, ay, &YELLOW);
-  line(canvas, ax, ay, cx, cy, &RED);
+  // Model model = load_model("assets/diablo3_pose.obj");
+  Model model = load_model("assets/african_head.obj");
+  // Model model = load_model("assets/boggie/body.obj");
+  draw_model(canvas, &model);
+  free_model(&model);
 
-  draw_model(canvas, "assets/diablo3_pose.obj");
+  // draw_test_triangle(canvas);
   // random_lines(canvas);
   SDL_UnlockSurface(canvas);
 
   SDL_Event event;
   bool run = true;
   while (run) {
+    run = true;
     while (SDL_PollEvent(&event)) {
       switch (event.type) {
       case SDL_EVENT_QUIT:
         run = false;
-        printf("Quit\n");
         break;
       default:
         break;
