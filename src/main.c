@@ -3,11 +3,17 @@
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #define BURNRAST_SDL_CHECK(x)                                                  \
   if (!x) {                                                                    \
     printf("%s\n", SDL_GetError());                                            \
   }
+
+#define BURNRAST_SWAP(a, b)                                                    \
+  int32_t tmp_##a = a;                                                         \
+  a = b;                                                                       \
+  b = tmp_##a
 
 typedef struct {
   uint32_t r;
@@ -67,13 +73,50 @@ void set_color(SDL_Surface *canvas, uint32_t x, uint32_t y,
 
 void line(SDL_Surface *canvas, int32_t ax, int32_t ay, int32_t bx, int32_t by,
           const Color *color) {
-  for (float t = 0.0; t < 1.0; t += 0.02) {
-    // int32_t new_x = ax + (int32_t)(t * (float)(bx - ax));
-    // int32_t new_y = ay + (int32_t)(t * (float)(by - ay));
-
+  /*for (float t = 0.0; t < 1.0; t += 0.02) {
     int32_t new_x = round(ax + (bx - ax) * t);
     int32_t new_y = round(ay + (by - ay) * t);
     set_color(canvas, new_x, new_y, color);
+  }*/
+
+  bool steep = abs(ax - bx) < abs(ay - by);
+
+  if (steep) {
+    BURNRAST_SWAP(ax, ay);
+    BURNRAST_SWAP(bx, by);
+  }
+
+  if (ax > bx) {
+    BURNRAST_SWAP(ax, bx);
+    BURNRAST_SWAP(ay, by);
+  }
+
+  float y = ay;
+  for (int32_t x = ax; x <= bx; x++) {
+    // float t = (x - ax) / (float)(bx - ax);
+    // int32_t y = round(ay + (by - ay) * t);
+
+    if (steep) {
+      set_color(canvas, y, x, color);
+    } else {
+      set_color(canvas, x, y, color);
+    }
+    y += (by - ay) / (float)(bx - ax);
+  }
+}
+
+void random_lines(SDL_Surface *canvas) {
+  for (uint32_t i = 0; i < (1 << 12); i++) {
+    int32_t ax = rand() % canvas->w;
+    int32_t bx = rand() % canvas->w;
+    int32_t ay = rand() % canvas->h;
+    int32_t by = rand() % canvas->h;
+    Color color = {
+        .r = rand() % 255,
+        .g = rand() % 255,
+        .b = rand() % 255,
+    };
+    line(canvas, ax, ay, bx, by, &color);
   }
 }
 
@@ -85,9 +128,6 @@ int main() {
   SDL_Window *window = SDL_CreateWindow("burnrast", w, h, 0);
 
   SDL_Surface *canvas = SDL_CreateSurface(w, h, SDL_PIXELFORMAT_RGBA32);
-
-  SDL_Event event;
-  bool run = true;
 
   SDL_LockSurface(canvas);
 
@@ -103,8 +143,12 @@ int main() {
   line(canvas, cx, cy, bx, by, &GREEN);
   line(canvas, cx, cy, ax, ay, &YELLOW);
   line(canvas, ax, ay, cx, cy, &RED);
+
+  // random_lines(canvas);
   SDL_UnlockSurface(canvas);
 
+  SDL_Event event;
+  bool run = true;
   while (run) {
     while (SDL_PollEvent(&event)) {
       switch (event.type) {

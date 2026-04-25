@@ -8,6 +8,9 @@ build:
 release:
 	$(CC) $(SRCS) $(LDFLAGS) -O2 -o burnrast
 
+debug:
+	$(CC) $(SRCS) $(LDFLAGS) -g -o burnrast
+
 run: build
 	./burnrast
 
