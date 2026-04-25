@@ -49,17 +49,6 @@ const static Color YELLOW = {
     .b = 255,
 };
 
-void update(SDL_Surface *canvas) {
-  uint32_t *buffer = canvas->pixels;
-  for (uint32_t y = 0; y < canvas->h; y++) {
-    for (uint32_t x = 0; x < canvas->w; x++) {
-      uint32_t offset = y * canvas->w + x;
-      uint32_t color = SDL_MapSurfaceRGB(canvas, 0, 255, 255);
-      buffer[offset] = color;
-    }
-  }
-}
-
 void set_color(SDL_Surface *canvas, uint32_t x, uint32_t y,
                const Color *color) {
   if (x > canvas->w || y > canvas->h) {
@@ -111,6 +100,13 @@ void line(SDL_Surface *canvas, int32_t ax, int32_t ay, int32_t bx, int32_t by,
   }
 }
 
+void triangle(SDL_Surface *canvas, int32_t ax, int32_t ay, int32_t bx,
+              int32_t by, int32_t cx, int32_t cy, const Color *color) {
+  line(canvas, ax, ay, bx, by, color);
+  line(canvas, bx, by, cx, cy, color);
+  line(canvas, cx, cy, ax, ay, color);
+}
+
 void random_lines(SDL_Surface *canvas) {
   for (uint32_t i = 0; i < (1 << 20); i++) {
     int32_t ax = rand() % canvas->w;
@@ -134,6 +130,12 @@ void draw_test_triangle(SDL_Surface *canvas) {
   line(canvas, cx, cy, bx, by, &GREEN);
   line(canvas, cx, cy, ax, ay, &YELLOW);
   line(canvas, ax, ay, cx, cy, &RED);
+}
+
+void draw_test_triangles(SDL_Surface *canvas) {
+  triangle(canvas, 7, 45, 35, 100, 45, 60, &RED);
+  triangle(canvas, 120, 35, 90, 5, 45, 110, &WHITE);
+  triangle(canvas, 115, 83, 80, 90, 85, 120, &GREEN);
 }
 
 typedef struct {
@@ -261,12 +263,13 @@ int main() {
   SDL_ClearSurface(canvas, 0.0, 0.0, 0.0, 1.0);
 
   // Model model = load_model("assets/diablo3_pose.obj");
-  Model model = load_model("assets/african_head.obj");
+  // Model model = load_model("assets/african_head.obj");
   // Model model = load_model("assets/boggie/body.obj");
-  draw_model(canvas, &model);
-  free_model(&model);
+  // draw_model(canvas, &model);
+  // free_model(&model);
 
   // draw_test_triangle(canvas);
+  draw_test_triangles(canvas);
   // random_lines(canvas);
   SDL_UnlockSurface(canvas);
 
