@@ -140,8 +140,9 @@ void draw_model(const char *filepath) {
   }
 
   float *vertices = (float *)malloc(vertex_count * 3 * sizeof(float));
-  int *face_vertices = (int *)malloc(face_count * sizeof(int));
+  int *face_vertices = (int *)malloc(face_count * 3 * sizeof(int));
   uint32_t current_vertex = 0;
+  uint32_t current_face = 0;
 
   fseek(file, 0, SEEK_SET);
   while ((read = getline(&line, &len, file) != -1)) {
@@ -159,15 +160,31 @@ void draw_model(const char *filepath) {
       vertices[current_vertex + 1] = pos1;
       vertices[current_vertex + 2] = pos2;
       current_vertex += 3;
-    } else if (line[0] == 'f' && line[2]) {
+    } else if (line[0] == 'f' && line[1] == ' ') {
+      char *new_line = line + 2;
+      uint32_t pos[3];
+      uint32_t unused[6];
+      if (sscanf(new_line, "%u/%u/%u %u/%u/%u %u/%u/%u", &pos[0], &unused[0],
+                 &unused[1], &pos[1], &unused[2], &unused[3], &pos[2],
+                 &unused[4], &unused[5]) != 9) {
+        printf("Failed to parse line: %s", line);
+      }
+
+      printf("face: %u %u %u\n", pos[0], pos[1], pos[2]);
+
+      face_vertices[current_face + 0] = pos[0];
+      face_vertices[current_face + 1] = pos[1];
+      face_vertices[current_face + 2] = pos[2];
+      current_face += 3;
     }
   }
 
   printf("Vertex count: %d\n", vertex_count);
+  printf("Face count: %d\n", face_count);
 
-  // fclose(file);
-  // free(vertices);
-  // free(face_vertices);
+  fclose(file);
+  free(vertices);
+  free(face_vertices);
 }
 
 int main() {
