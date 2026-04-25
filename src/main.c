@@ -121,7 +121,12 @@ void random_lines(SDL_Surface *canvas) {
   }
 }
 
-void draw_model(const char *filepath) {
+void project(const SDL_Surface *surface, const float *x, int32_t *res) {
+  res[0] = (x[0] + 1.0) * surface->w / 2;
+  res[1] = (x[1] + 1.0) * surface->h / 2;
+}
+
+void draw_model(SDL_Surface *canvas, const char *filepath) {
   uint32_t vertex_count = 0;
   uint32_t face_count = 0;
 
@@ -129,12 +134,12 @@ void draw_model(const char *filepath) {
 
   ssize_t read = 0;
   size_t len = 0;
-  char *line = NULL;
+  char *current_line = NULL;
 
-  while ((read = getline(&line, &len, file) != -1)) {
-    if (line[0] == 'v' && line[1] == ' ') {
+  while ((read = getline(&current_line, &len, file) != -1)) {
+    if (current_line[0] == 'v' && current_line[1] == ' ') {
       vertex_count++;
-    } else if (line[0] == 'f') {
+    } else if (current_line[0] == 'f') {
       face_count++;
     }
   }
@@ -145,14 +150,14 @@ void draw_model(const char *filepath) {
   uint32_t current_face = 0;
 
   fseek(file, 0, SEEK_SET);
-  while ((read = getline(&line, &len, file) != -1)) {
-    if (line[0] == 'v' && line[1] == ' ') {
-      char *new_line = line + 2;
+  while ((read = getline(&current_line, &len, file) != -1)) {
+    if (current_line[0] == 'v' && current_line[1] == ' ') {
+      char *new_line = current_line + 2;
       float pos0;
       float pos1;
       float pos2;
       if (sscanf(new_line, "%f %f %f", &pos0, &pos1, &pos2) != 3) {
-        printf("Failed to parse line: %s", line);
+        printf("Failed to parse line: %s", current_line);
         exit(0);
       }
       printf("%f %f %f\n", pos0, pos1, pos2);
@@ -160,21 +165,23 @@ void draw_model(const char *filepath) {
       vertices[current_vertex + 1] = pos1;
       vertices[current_vertex + 2] = pos2;
       current_vertex += 3;
-    } else if (line[0] == 'f' && line[1] == ' ') {
-      char *new_line = line + 2;
+    } else if (current_line[0] == 'f' && current_line[1] == ' ') {
+      char *new_line = current_line + 2;
       uint32_t pos[3];
       uint32_t unused[6];
       if (sscanf(new_line, "%u/%u/%u %u/%u/%u %u/%u/%u", &pos[0], &unused[0],
                  &unused[1], &pos[1], &unused[2], &unused[3], &pos[2],
                  &unused[4], &unused[5]) != 9) {
-        printf("Failed to parse line: %s", line);
+        printf("Failed to parse line: %s", current_line);
       }
 
       printf("face: %u %u %u\n", pos[0], pos[1], pos[2]);
 
-      face_vertices[current_face + 0] = pos[0];
-      face_vertices[current_face + 1] = pos[1];
-      face_vertices[current_face + 2] = pos[2];
+      // -1 as .obj indices start at 1
+      // * 3 as there are 3 floats per vertex/face index
+      face_vertices[current_face + 0] = (pos[0] - 1) * 3;
+      face_vertices[current_face + 1] = (pos[1] - 1) * 3;
+      face_vertices[current_face + 2] = (pos[2] - 1) * 3;
       current_face += 3;
     }
   }
@@ -183,6 +190,24 @@ void draw_model(const char *filepath) {
   printf("Face count: %d\n", face_count);
 
   fclose(file);
+
+  for (uint32_t i = 0; i < face_count; i++) {
+    float *a = &vertices[face_vertices[i * 3 + 0]];
+    float *b = &vertices[face_vertices[i * 3 + 1]];
+    float *c = &vertices[face_vertices[i * 3 + 2]];
+
+    int32_t a_proj[2];
+    int32_t b_proj[2];
+    int32_t c_proj[2];
+    project(canvas, a, a_proj);
+    project(canvas, b, b_proj);
+    project(canvas, c, c_proj);
+
+    line(canvas, a_proj[0], a_proj[1], b_proj[0], b_proj[1], &RED);
+    line(canvas, b_proj[0], b_proj[1], c_proj[0], c_proj[1], &RED);
+    line(canvas, c_proj[0], c_proj[1], a_proj[0], a_proj[1], &RED);
+  }
+
   free(vertices);
   free(face_vertices);
 }
@@ -190,8 +215,8 @@ void draw_model(const char *filepath) {
 int main() {
   SDL_Init(SDL_INIT_VIDEO);
 
-  uint32_t h = 64;
-  uint32_t w = 64;
+  uint32_t h = 640;
+  uint32_t w = 640;
   SDL_Window *window = SDL_CreateWindow("burnrast", w, h, 0);
 
   SDL_Surface *canvas = SDL_CreateSurface(w, h, SDL_PIXELFORMAT_RGBA32);
@@ -211,7 +236,7 @@ int main() {
   line(canvas, cx, cy, ax, ay, &YELLOW);
   line(canvas, ax, ay, cx, cy, &RED);
 
-  draw_model("assets/diablo3_pose.obj");
+  draw_model(canvas, "assets/diablo3_pose.obj");
   // random_lines(canvas);
   SDL_UnlockSurface(canvas);
 
