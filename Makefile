@@ -1,6 +1,6 @@
 LDFLAGS = -lSDL3 -lm
 CC = gcc
-SRCS = src/main.c
+SRCS = src/main.c src/model.c
 
 build:
 	$(CC) $(SRCS) $(LDFLAGS) -o burnrast

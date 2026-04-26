@@ -1,10 +1,11 @@
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_video.h>
 #include <assert.h>
-#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include "model.h"
 
 #define BURNRAST_SDL_CHECK(x)                                                  \
   if (!x) {                                                                    \
@@ -15,6 +16,9 @@
   int32_t tmp_##a = a;                                                         \
   a = b;                                                                       \
   b = tmp_##a
+
+#define min(a, b) (a < b ? a : b)
+#define max(a, b) (a > b ? a : b)
 
 typedef struct {
   uint32_t r;
@@ -100,11 +104,103 @@ void line(SDL_Surface *canvas, int32_t ax, int32_t ay, int32_t bx, int32_t by,
   }
 }
 
-void triangle(SDL_Surface *canvas, int32_t ax, int32_t ay, int32_t bx,
-              int32_t by, int32_t cx, int32_t cy, const Color *color) {
+void triangle_outline(SDL_Surface *canvas, int32_t ax, int32_t ay, int32_t bx,
+                      int32_t by, int32_t cx, int32_t cy, const Color *color) {
   line(canvas, ax, ay, bx, by, color);
   line(canvas, bx, by, cx, cy, color);
   line(canvas, cx, cy, ax, ay, color);
+}
+
+void triangle_scanline(SDL_Surface *canvas, int32_t ax, int32_t ay, int32_t bx,
+                       int32_t by, int32_t cx, int32_t cy, const Color *color) {
+  // Sort a, b & c such that a is the smallest
+  if (ay > by) {
+    BURNRAST_SWAP(ax, bx);
+    BURNRAST_SWAP(ay, by);
+  }
+  if (ay > cy) {
+    BURNRAST_SWAP(ax, cx);
+    BURNRAST_SWAP(ay, cy);
+  }
+  if (by > cy) {
+    BURNRAST_SWAP(cx, bx);
+    BURNRAST_SWAP(cy, by);
+  }
+
+  int32_t total_height = cy - ay;
+
+  // Rasterizes up to the boundary introduced by the midpoint  b
+  if (ay != cy) {
+    int32_t segment_height = by - ay;
+    // Go over each segment
+    for (int32_t y = ay; y <= by; y++) {
+      // Evaluates x point32_t along the triangle boundary
+      int32_t x1 = ax + ((cx - ax) * (y - ay)) / total_height;
+      int32_t x2 = ax + ((bx - ax) * (y - ay)) / segment_height;
+
+      // Draw a line from the leftmost x point32_t to the rightmost x point
+      for (int32_t x = min(x1, x2); x < max(x1, x2); x++) {
+        set_color(canvas, x, y, color);
+      }
+    }
+  }
+
+  // Do the same thing but from b to c
+  if (by != cy) {
+    int32_t segment_height = cy - by;
+    for (int32_t y = by; y <= cy; y++) {
+      int32_t x1 = ax + ((cx - ax) * (y - ay)) / total_height;
+      int32_t x2 = bx + ((cx - bx) * (y - by)) / segment_height;
+
+      for (int32_t x = min(x1, x2); x < max(x1, x2); x++) {
+        set_color(canvas, x, y, color);
+      }
+    }
+  }
+}
+
+float signed_triangle_area(int32_t ax, int32_t ay, int32_t bx, int32_t by,
+                           int32_t cx, int32_t cy) {
+  // 1/2 * g * h
+  /*return 0.5f * ((by - ay) * (bx + ax) + (cy - by) * (cx + bx) +
+                 (ay - cy) * (ax + cx));*/
+
+  return 0.5f * ((ax - cx) * (by - ay) - (ax - bx) * (cy - ay));
+}
+
+void triangle_aabb(SDL_Surface *canvas, int32_t ax, int32_t ay, int32_t bx,
+                   int32_t by, int32_t cx, int32_t cy, const Color *color) {
+  float min_x = min(ax, min(bx, cx));
+  float min_y = min(ay, min(by, cy));
+  float max_x = max(ax, max(bx, cx));
+  float max_y = max(ay, max(by, cy));
+
+  float total_area = signed_triangle_area(ax, ay, bx, by, cx, cy);
+
+  // Backface culling
+  if (total_area < 0.0f) {
+    return;
+  }
+
+  for (int32_t x = min_x; x < max_x; x++) {
+    for (int32_t y = min_y; y < max_y; y++) {
+      float alpha = signed_triangle_area(x, y, bx, by, cx, cy) / total_area;
+      float beta = signed_triangle_area(x, y, cx, cy, ax, ay) / total_area;
+      float gamma = signed_triangle_area(x, y, ax, ay, bx, by) / total_area;
+      if (alpha < 0 || beta < 0 || gamma < 0) {
+        continue;
+      }
+
+      set_color(canvas, x, y, color);
+    }
+  }
+}
+
+void triangle(SDL_Surface *canvas, int32_t ax, int32_t ay, int32_t bx,
+              int32_t by, int32_t cx, int32_t cy, const Color *color) {
+  triangle_aabb(canvas, ax, ay, bx, by, cx, cy, color);
+  // triangle_scanline(canvas, ax, ay, bx, by, cx, cy, color);
+  // triangle_outline(canvas, ax, ay, bx, by, cx, cy, color);
 }
 
 void random_lines(SDL_Surface *canvas) {
@@ -138,93 +234,6 @@ void draw_test_triangles(SDL_Surface *canvas) {
   triangle(canvas, 115, 83, 80, 90, 85, 120, &GREEN);
 }
 
-typedef struct {
-  float *vertices;
-  int *face_vertices;
-  uint32_t vertex_count;
-  uint32_t face_count;
-} Model;
-
-Model load_model(const char *filepath) {
-  uint32_t vertex_count = 0;
-  uint32_t face_count = 0;
-
-  FILE *file = fopen(filepath, "r");
-
-  ssize_t read = 0;
-  size_t len = 0;
-  char *current_line = NULL;
-
-  while ((read = getline(&current_line, &len, file) != -1)) {
-    if (current_line[0] == 'v' && current_line[1] == ' ') {
-      vertex_count++;
-    } else if (current_line[0] == 'f') {
-      face_count++;
-    }
-  }
-
-  float *vertices = (float *)malloc(vertex_count * 3 * sizeof(float));
-  int *face_vertices = (int *)malloc(face_count * 3 * sizeof(int));
-  uint32_t current_vertex = 0;
-  uint32_t current_face = 0;
-
-  fseek(file, 0, SEEK_SET);
-  while ((read = getline(&current_line, &len, file) != -1)) {
-    if (current_line[0] == 'v' && current_line[1] == ' ') {
-      char *new_line = current_line + 2;
-      float pos0;
-      float pos1;
-      float pos2;
-      if (sscanf(new_line, "%f %f %f", &pos0, &pos1, &pos2) != 3) {
-        printf("Failed to parse line: %s", current_line);
-        exit(0);
-      }
-      // printf("%f %f %f\n", pos0, pos1, pos2);
-      vertices[current_vertex + 0] = pos0;
-      vertices[current_vertex + 1] = pos1;
-      vertices[current_vertex + 2] = pos2;
-      current_vertex += 3;
-    } else if (current_line[0] == 'f' && current_line[1] == ' ') {
-      char *new_line = current_line + 2;
-      uint32_t pos[3];
-      uint32_t unused[6];
-      if (sscanf(new_line, "%u/%u/%u %u/%u/%u %u/%u/%u", &pos[0], &unused[0],
-                 &unused[1], &pos[1], &unused[2], &unused[3], &pos[2],
-                 &unused[4], &unused[5]) != 9) {
-        printf("Failed to parse line: %s", current_line);
-      }
-
-      // printf("face: %u %u %u\n", pos[0], pos[1], pos[2]);
-
-      // -1 as .obj indices start at 1
-      // * 3 as there are 3 floats per vertex/face index
-      face_vertices[current_face + 0] = (pos[0] - 1);
-      face_vertices[current_face + 1] = (pos[1] - 1);
-      face_vertices[current_face + 2] = (pos[2] - 1);
-      current_face += 3;
-    }
-  }
-
-  printf("Vertex count: %d\n", vertex_count);
-  printf("Face count: %d\n", face_count);
-
-  fclose(file);
-
-  Model model = {
-      .vertices = vertices,
-      .face_vertices = face_vertices,
-      .vertex_count = vertex_count,
-      .face_count = face_count,
-  };
-
-  return model;
-}
-
-void free_model(Model *model) {
-  free(model->vertices);
-  free(model->face_vertices);
-}
-
 void project(const SDL_Surface *surface, const float *x, int32_t *res) {
   res[0] = (x[0] + 1.0) * surface->w / 2;
   res[1] = (x[1] + 1.0) * surface->h / 2;
@@ -243,9 +252,16 @@ void draw_model(SDL_Surface *canvas, Model *model) {
     project(canvas, b, b_proj);
     project(canvas, c, c_proj);
 
-    line(canvas, a_proj[0], a_proj[1], b_proj[0], b_proj[1], &RED);
-    line(canvas, b_proj[0], b_proj[1], c_proj[0], c_proj[1], &RED);
-    line(canvas, c_proj[0], c_proj[1], a_proj[0], a_proj[1], &RED);
+    // line(canvas, a_proj[0], a_proj[1], b_proj[0], b_proj[1], &RED);
+    // line(canvas, b_proj[0], b_proj[1], c_proj[0], c_proj[1], &RED);
+    // line(canvas, c_proj[0], c_proj[1], a_proj[0], a_proj[1], &RED);
+
+    Color color = {};
+    color.r = rand() % 255;
+    color.g = rand() % 255;
+    color.b = rand() % 255;
+    triangle(canvas, a_proj[0], a_proj[1], b_proj[0], b_proj[1], c_proj[0],
+             c_proj[1], &color);
   }
 }
 
@@ -263,13 +279,13 @@ int main() {
   SDL_ClearSurface(canvas, 0.0, 0.0, 0.0, 1.0);
 
   // Model model = load_model("assets/diablo3_pose.obj");
-  // Model model = load_model("assets/african_head.obj");
+  Model model = load_model("assets/african_head.obj");
   // Model model = load_model("assets/boggie/body.obj");
-  // draw_model(canvas, &model);
-  // free_model(&model);
+  draw_model(canvas, &model);
+  free_model(&model);
 
   // draw_test_triangle(canvas);
-  draw_test_triangles(canvas);
+  // draw_test_triangles(canvas);
   // random_lines(canvas);
   SDL_UnlockSurface(canvas);
 
