@@ -53,6 +53,12 @@ const static Color YELLOW = {
     .b = 255,
 };
 
+typedef struct {
+  int32_t x;
+  int32_t y;
+  int32_t z;
+} Vec3;
+
 void set_color(SDL_Surface *canvas, uint32_t x, uint32_t y,
                const Color *color) {
   if (x > canvas->w || y > canvas->h) {
@@ -168,14 +174,14 @@ float signed_triangle_area(int32_t ax, int32_t ay, int32_t bx, int32_t by,
   return 0.5f * ((ax - cx) * (by - ay) - (ax - bx) * (cy - ay));
 }
 
-void triangle_aabb(SDL_Surface *canvas, int32_t ax, int32_t ay, int32_t bx,
-                   int32_t by, int32_t cx, int32_t cy, const Color *color) {
-  float min_x = min(ax, min(bx, cx));
-  float min_y = min(ay, min(by, cy));
-  float max_x = max(ax, max(bx, cx));
-  float max_y = max(ay, max(by, cy));
+void triangle_aabb(SDL_Surface *canvas, Vec3 a, Vec3 b, Vec3 c,
+                   const Color *color) {
+  float min_x = min(a.x, min(b.x, c.x));
+  float min_y = min(a.y, min(b.y, c.y));
+  float max_x = max(a.x, max(b.x, c.x));
+  float max_y = max(a.y, max(b.y, c.y));
 
-  float total_area = signed_triangle_area(ax, ay, bx, by, cx, cy);
+  float total_area = signed_triangle_area(a.x, a.y, b.x, b.y, c.x, c.y);
 
   // Backface culling
   if (total_area < 0.0f) {
@@ -184,21 +190,33 @@ void triangle_aabb(SDL_Surface *canvas, int32_t ax, int32_t ay, int32_t bx,
 
   for (int32_t x = min_x; x < max_x; x++) {
     for (int32_t y = min_y; y < max_y; y++) {
-      float alpha = signed_triangle_area(x, y, bx, by, cx, cy) / total_area;
-      float beta = signed_triangle_area(x, y, cx, cy, ax, ay) / total_area;
-      float gamma = signed_triangle_area(x, y, ax, ay, bx, by) / total_area;
+      float alpha = signed_triangle_area(x, y, b.x, b.y, c.x, c.y) / total_area;
+      float beta = signed_triangle_area(x, y, c.x, c.y, a.x, a.y) / total_area;
+      float gamma = signed_triangle_area(x, y, a.x, a.y, b.x, b.y) / total_area;
       if (alpha < 0 || beta < 0 || gamma < 0) {
         continue;
       }
+
+      float z = (alpha * a.z + beta * b.z + gamma * c.z);
+
+      /*Color new_color = {
+          .r = (alpha * BLUE.r + beta * GREEN.r + gamma * RED.r),
+          .g = (alpha * BLUE.g + beta * GREEN.g + gamma * RED.g),
+          .b = (alpha * BLUE.b + beta * GREEN.b + gamma * RED.b),
+      };*/
+
+      /*float k = min(alpha, min(beta, gamma));
+      if (k > 0.1f) {
+        continue;
+      }*/
 
       set_color(canvas, x, y, color);
     }
   }
 }
 
-void triangle(SDL_Surface *canvas, int32_t ax, int32_t ay, int32_t bx,
-              int32_t by, int32_t cx, int32_t cy, const Color *color) {
-  triangle_aabb(canvas, ax, ay, bx, by, cx, cy, color);
+void triangle(SDL_Surface *canvas, Vec3 a, Vec3 b, Vec3 c, const Color *color) {
+  triangle_aabb(canvas, a, b, c, color);
   // triangle_scanline(canvas, ax, ay, bx, by, cx, cy, color);
   // triangle_outline(canvas, ax, ay, bx, by, cx, cy, color);
 }
@@ -219,24 +237,27 @@ void random_lines(SDL_Surface *canvas) {
 }
 
 void draw_test_triangle(SDL_Surface *canvas) {
-  int ax = 7, ay = 3;
-  int bx = 12, by = 37;
-  int cx = 62, cy = 53;
-  line(canvas, ax, ay, bx, by, &BLUE);
+  Vec3 a = {.x = 7, .y = 4, .z = 13};
+  Vec3 b = {.x = 55, .y = 39, .z = 128};
+  Vec3 c = {.x = 23, .y = 59, .z = 255};
+  /*line(canvas, ax, ay, bx, by, &BLUE);
   line(canvas, cx, cy, bx, by, &GREEN);
   line(canvas, cx, cy, ax, ay, &YELLOW);
-  line(canvas, ax, ay, cx, cy, &RED);
+  line(canvas, ax, ay, cx, cy, &RED);*/
+
+  triangle(canvas, a, b, c, &RED);
 }
 
 void draw_test_triangles(SDL_Surface *canvas) {
-  triangle(canvas, 7, 45, 35, 100, 45, 60, &RED);
-  triangle(canvas, 120, 35, 90, 5, 45, 110, &WHITE);
-  triangle(canvas, 115, 83, 80, 90, 85, 120, &GREEN);
+  // triangle(canvas, 7, 45, 35, 100, 45, 60, &RED);
+  // triangle(canvas, 120, 35, 90, 5, 45, 110, &WHITE);
+  // triangle(canvas, 115, 83, 80, 90, 85, 120, &GREEN);
 }
 
 void project(const SDL_Surface *surface, const float *x, int32_t *res) {
   res[0] = (x[0] + 1.0) * surface->w / 2;
   res[1] = (x[1] + 1.0) * surface->h / 2;
+  res[2] = (x[2] + 1.0) * 255.0 / 2;
 }
 
 void draw_model(SDL_Surface *canvas, Model *model) {
@@ -245,12 +266,12 @@ void draw_model(SDL_Surface *canvas, Model *model) {
     float *b = &model->vertices[model->face_vertices[i * 3 + 1] * 3];
     float *c = &model->vertices[model->face_vertices[i * 3 + 2] * 3];
 
-    int32_t a_proj[2];
-    int32_t b_proj[2];
-    int32_t c_proj[2];
-    project(canvas, a, a_proj);
-    project(canvas, b, b_proj);
-    project(canvas, c, c_proj);
+    Vec3 a_proj = {};
+    Vec3 b_proj = {};
+    Vec3 c_proj = {};
+    project(canvas, a, &a_proj.x);
+    project(canvas, b, &b_proj.x);
+    project(canvas, c, &c_proj.x);
 
     // line(canvas, a_proj[0], a_proj[1], b_proj[0], b_proj[1], &RED);
     // line(canvas, b_proj[0], b_proj[1], c_proj[0], c_proj[1], &RED);
@@ -260,8 +281,7 @@ void draw_model(SDL_Surface *canvas, Model *model) {
     color.r = rand() % 255;
     color.g = rand() % 255;
     color.b = rand() % 255;
-    triangle(canvas, a_proj[0], a_proj[1], b_proj[0], b_proj[1], c_proj[0],
-             c_proj[1], &color);
+    triangle(canvas, a_proj, b_proj, c_proj, &color);
   }
 }
 
@@ -278,13 +298,13 @@ int main() {
 
   SDL_ClearSurface(canvas, 0.0, 0.0, 0.0, 1.0);
 
-  // Model model = load_model("assets/diablo3_pose.obj");
-  Model model = load_model("assets/african_head.obj");
+  Model model = load_model("assets/diablo3_pose.obj");
+  // Model model = load_model("assets/african_head.obj");
   // Model model = load_model("assets/boggie/body.obj");
   draw_model(canvas, &model);
   free_model(&model);
 
-  // draw_test_triangle(canvas);
+  draw_test_triangle(canvas);
   // draw_test_triangles(canvas);
   // random_lines(canvas);
   SDL_UnlockSurface(canvas);
