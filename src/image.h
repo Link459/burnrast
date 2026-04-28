@@ -11,6 +11,7 @@ typedef struct {
 } Image;
 
 Image image_create(uint32_t width, uint32_t height, uint32_t stride);
+void image_free(Image *image);
 
 void image_clear(Image *image, void *value);
 void image_set(Image *image, uint32_t x, uint32_t y, void *value);

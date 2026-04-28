@@ -16,10 +16,12 @@ Image image_create(uint32_t width, uint32_t height, uint32_t stride) {
   return image;
 }
 
+void image_free(Image *image) {
+    free(image->data);
+}
+
 void image_clear(Image *image, void *value) {
-
   for (uint32_t x = 0; x < image->width; x++) {
-
     for (uint32_t y = 0; y < image->height; y++) {
       image_set(image, x, y, value);
     }

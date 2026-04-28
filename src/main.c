@@ -1,6 +1,7 @@
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_video.h>
 #include <assert.h>
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -266,32 +267,44 @@ void draw_test_triangles(SDL_Surface *canvas) {
   // triangle(canvas, 115, 83, 80, 90, 85, 120, &GREEN);
 }
 
-void project(const SDL_Surface *surface, Vec3 *x, int32_t *res) {
-  res[0] = (x->x + 1.0f) * surface->w / 2;
-  res[1] = (x->y + 1.0f) * surface->h / 2;
-  res[2] = (x->z + 1.0f) * 255.0f / 2;
+IVec3 project(const SDL_Surface *surface, Vec3 x) {
+  IVec3 res;
+  res.x = (x.x + 1.0f) * surface->w / 2;
+  res.y = (x.y + 1.0f) * surface->h / 2;
+  res.z = (x.z + 1.0f) * 255.0f / 2;
+  return res;
+}
+
+Vec3 persp(Vec3 v) {
+  float c = 3.0f;
+  float inv = 1.0 / (1.0 - v.z / c);
+
+  Vec3 res = {};
+  res.x = v.x * inv;
+  res.y = v.y * inv;
+  res.z = v.z * inv;
+  return res;
+}
+
+Vec3 rot(const Vec3 *v) {
+  float a = -M_PI / 6;
+  Mat3 rotation;
+  Vec3 top = {cosf(a), 0, sinf(a)};
+  Vec3 mid = {0, 1, 0};
+  Vec3 bottom = {-sinf(a), 0, cosf(a)};
+  make_mat3(&top, &mid, &bottom, &rotation);
+  return mat3_mul_vec(&rotation, v);
 }
 
 void draw_model(SDL_Surface *canvas, Model *model) {
   for (uint32_t i = 0; i < model->face_count; i++) {
-    // float *a = &model->vertices[model->face_vertices[i * 3 + 0]].position.x;
-    // float *b = &model->vertices[model->face_vertices[i * 3 + 1]].position.x;
-    // float *c = &model->vertices[model->face_vertices[i * 3 + 2]].position.x;
-
     Vertex *a = &model->vertices[model->face_vertices[i * 3 + 0]];
     Vertex *b = &model->vertices[model->face_vertices[i * 3 + 1]];
     Vertex *c = &model->vertices[model->face_vertices[i * 3 + 2]];
 
-    IVec3 a_proj = {};
-    IVec3 b_proj = {};
-    IVec3 c_proj = {};
-    project(canvas, &a->position, &a_proj.x);
-    project(canvas, &b->position, &b_proj.x);
-    project(canvas, &c->position, &c_proj.x);
-
-    // line(canvas, a_proj[0], a_proj[1], b_proj[0], b_proj[1], &RED);
-    // line(canvas, b_proj[0], b_proj[1], c_proj[0], c_proj[1], &RED);
-    // line(canvas, c_proj[0], c_proj[1], a_proj[0], a_proj[1], &RED);
+    IVec3 a_proj = project(canvas, persp(rot(&a->position)));
+    IVec3 b_proj = project(canvas, persp(rot(&b->position)));
+    IVec3 c_proj = project(canvas, persp(rot(&c->position)));
 
     Color color = {a->color.x, a->color.y, a->color.z};
     triangle(canvas, a_proj, b_proj, c_proj, &color);
@@ -352,6 +365,7 @@ int main() {
   }
 
   free_model(&model);
+  image_free(&z_buffer);
   SDL_Quit();
   return 0;
 }

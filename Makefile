@@ -11,6 +11,9 @@ release:
 debug:
 	$(CC) $(SRCS) $(LDFLAGS) -g -o burnrast
 
+asan:
+	$(CC) $(SRCS) $(LDFLAGS) -fsanitize=address -o burnrast
+
 run: build
 	./burnrast
 

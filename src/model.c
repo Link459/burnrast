@@ -1,5 +1,6 @@
 #include "model.h"
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -54,7 +55,7 @@ Model load_model(const char *filepath) {
         exit(0);
       }
 
-      vertices[current_vertex_uv].uvw = uvw;
+      // vertices[current_vertex_uv].uvw = uvw;
       current_vertex_uv++;
     } else if (current_line[0] == 'v' && current_line[1] == 'n') {
       char *new_line = current_line + 3;
@@ -64,7 +65,7 @@ Model load_model(const char *filepath) {
         exit(0);
       }
 
-      vertices[current_vertex_normal].normal = normal;
+      // vertices[current_vertex_normal].normal = normal;
       current_vertex_normal++;
     } else if (current_line[0] == 'f' && current_line[1] == ' ') {
       char *new_line = current_line + 2;
@@ -87,8 +88,9 @@ Model load_model(const char *filepath) {
     }
   }
 
-  printf("Vertex count: %d\n", vertex_count);
-  printf("Face count: %d\n", face_count);
+  assert(current_vertex_pos == vertex_count);
+  //assert(current_vertex_uv == vertex_count);
+  //assert(current_vertex_normal == vertex_count);
 
   fclose(file);
 
