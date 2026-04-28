@@ -21,27 +21,51 @@ Model load_model(const char *filepath) {
     }
   }
 
-  float *vertices = (float *)malloc(vertex_count * 3 * sizeof(float));
-  int *face_vertices = (int *)malloc(face_count * 3 * sizeof(int));
-  uint32_t current_vertex = 0;
+  Vertex *vertices = malloc(vertex_count * sizeof(Vertex));
+  int *face_vertices = malloc(face_count * 3 * sizeof(int));
+  uint32_t current_vertex_pos = 0;
+  uint32_t current_vertex_uv = 0;
+  uint32_t current_vertex_normal = 0;
   uint32_t current_face = 0;
 
   fseek(file, 0, SEEK_SET);
   while ((read = getline(&current_line, &len, file) != -1)) {
     if (current_line[0] == 'v' && current_line[1] == ' ') {
       char *new_line = current_line + 2;
-      float pos0;
-      float pos1;
-      float pos2;
-      if (sscanf(new_line, "%f %f %f", &pos0, &pos1, &pos2) != 3) {
+      Vec3 position;
+      if (sscanf(new_line, "%f %f %f", &position.x, &position.y, &position.z) !=
+          3) {
         printf("Failed to parse line: %s", current_line);
         exit(0);
       }
-      // printf("%f %f %f\n", pos0, pos1, pos2);
-      vertices[current_vertex + 0] = pos0;
-      vertices[current_vertex + 1] = pos1;
-      vertices[current_vertex + 2] = pos2;
-      current_vertex += 3;
+
+      vertices[current_vertex_pos].position = position;
+      Vec3 color = {};
+      color.x = rand() % 255;
+      color.y = rand() % 255;
+      color.z = rand() % 255;
+      vertices[current_vertex_pos].color = color;
+      current_vertex_pos++;
+    } else if (current_line[0] == 'v' && current_line[1] == 't') {
+      char *new_line = current_line + 3;
+      Vec3 uvw;
+      if (sscanf(new_line, "%f %f", &uvw.x, &uvw.y) != 2) {
+        printf("Failed to parse line: %s", current_line);
+        exit(0);
+      }
+
+      vertices[current_vertex_uv].uvw = uvw;
+      current_vertex_uv++;
+    } else if (current_line[0] == 'v' && current_line[1] == 'n') {
+      char *new_line = current_line + 3;
+      Vec3 normal;
+      if (sscanf(new_line, "%f %f %f", &normal.x, &normal.y, &normal.z) != 3) {
+        printf("Failed to parse line: %s", current_line);
+        exit(0);
+      }
+
+      vertices[current_vertex_normal].normal = normal;
+      current_vertex_normal++;
     } else if (current_line[0] == 'f' && current_line[1] == ' ') {
       char *new_line = current_line + 2;
       uint32_t pos[3];

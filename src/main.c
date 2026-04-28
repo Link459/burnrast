@@ -7,6 +7,7 @@
 
 #include "image.h"
 #include "model.h"
+#include "vec.h"
 
 #define BURNRAST_SDL_CHECK(x)                                                  \
   if (!x) {                                                                    \
@@ -56,12 +57,6 @@ const static Color YELLOW = {
     .g = 255,
     .b = 255,
 };
-
-typedef struct {
-  int32_t x;
-  int32_t y;
-  int32_t z;
-} Vec3;
 
 void set_color(SDL_Surface *canvas, uint32_t x, uint32_t y,
                const Color *color) {
@@ -178,7 +173,7 @@ float signed_triangle_area(int32_t ax, int32_t ay, int32_t bx, int32_t by,
   return 0.5f * ((ax - cx) * (by - ay) - (ax - bx) * (cy - ay));
 }
 
-void triangle_aabb(SDL_Surface *canvas, Vec3 a, Vec3 b, Vec3 c,
+void triangle_aabb(SDL_Surface *canvas, IVec3 a, IVec3 b, IVec3 c,
                    const Color *color) {
   float min_x = min(a.x, min(b.x, c.x));
   float min_y = min(a.y, min(b.y, c.y));
@@ -231,7 +226,8 @@ void triangle_aabb(SDL_Surface *canvas, Vec3 a, Vec3 b, Vec3 c,
   }
 }
 
-void triangle(SDL_Surface *canvas, Vec3 a, Vec3 b, Vec3 c, const Color *color) {
+void triangle(SDL_Surface *canvas, IVec3 a, IVec3 b, IVec3 c,
+              const Color *color) {
   triangle_aabb(canvas, a, b, c, color);
   // triangle_scanline(canvas, ax, ay, bx, by, cx, cy, color);
   // triangle_outline(canvas, ax, ay, bx, by, cx, cy, color);
@@ -253,9 +249,9 @@ void random_lines(SDL_Surface *canvas) {
 }
 
 void draw_test_triangle(SDL_Surface *canvas) {
-  Vec3 a = {.x = 7, .y = 4, .z = 13};
-  Vec3 b = {.x = 55, .y = 39, .z = 128};
-  Vec3 c = {.x = 23, .y = 59, .z = 255};
+  IVec3 a = {.x = 7, .y = 4, .z = 13};
+  IVec3 b = {.x = 55, .y = 39, .z = 128};
+  IVec3 c = {.x = 23, .y = 59, .z = 255};
   /*line(canvas, ax, ay, bx, by, &BLUE);
   line(canvas, cx, cy, bx, by, &GREEN);
   line(canvas, cx, cy, ax, ay, &YELLOW);
@@ -270,33 +266,34 @@ void draw_test_triangles(SDL_Surface *canvas) {
   // triangle(canvas, 115, 83, 80, 90, 85, 120, &GREEN);
 }
 
-void project(const SDL_Surface *surface, const float *x, int32_t *res) {
-  res[0] = (x[0] + 1.0) * surface->w / 2;
-  res[1] = (x[1] + 1.0) * surface->h / 2;
-  res[2] = (x[2] + 1.0) * 255.0 / 2;
+void project(const SDL_Surface *surface, Vec3 *x, int32_t *res) {
+  res[0] = (x->x + 1.0f) * surface->w / 2;
+  res[1] = (x->y + 1.0f) * surface->h / 2;
+  res[2] = (x->z + 1.0f) * 255.0f / 2;
 }
 
 void draw_model(SDL_Surface *canvas, Model *model) {
   for (uint32_t i = 0; i < model->face_count; i++) {
-    float *a = &model->vertices[model->face_vertices[i * 3 + 0] * 3];
-    float *b = &model->vertices[model->face_vertices[i * 3 + 1] * 3];
-    float *c = &model->vertices[model->face_vertices[i * 3 + 2] * 3];
+    // float *a = &model->vertices[model->face_vertices[i * 3 + 0]].position.x;
+    // float *b = &model->vertices[model->face_vertices[i * 3 + 1]].position.x;
+    // float *c = &model->vertices[model->face_vertices[i * 3 + 2]].position.x;
 
-    Vec3 a_proj = {};
-    Vec3 b_proj = {};
-    Vec3 c_proj = {};
-    project(canvas, a, &a_proj.x);
-    project(canvas, b, &b_proj.x);
-    project(canvas, c, &c_proj.x);
+    Vertex *a = &model->vertices[model->face_vertices[i * 3 + 0]];
+    Vertex *b = &model->vertices[model->face_vertices[i * 3 + 1]];
+    Vertex *c = &model->vertices[model->face_vertices[i * 3 + 2]];
+
+    IVec3 a_proj = {};
+    IVec3 b_proj = {};
+    IVec3 c_proj = {};
+    project(canvas, &a->position, &a_proj.x);
+    project(canvas, &b->position, &b_proj.x);
+    project(canvas, &c->position, &c_proj.x);
 
     // line(canvas, a_proj[0], a_proj[1], b_proj[0], b_proj[1], &RED);
     // line(canvas, b_proj[0], b_proj[1], c_proj[0], c_proj[1], &RED);
     // line(canvas, c_proj[0], c_proj[1], a_proj[0], a_proj[1], &RED);
 
-    Color color = {};
-    color.r = rand() % 255;
-    color.g = rand() % 255;
-    color.b = rand() % 255;
+    Color color = {a->color.x, a->color.y, a->color.z};
     triangle(canvas, a_proj, b_proj, c_proj, &color);
   }
 }
@@ -313,8 +310,8 @@ int main() {
 
   SDL_Surface *canvas = SDL_CreateSurface(w, h, SDL_PIXELFORMAT_RGBA32);
 
-  Model model = load_model("assets/diablo3_pose.obj");
-  // Model model = load_model("assets/african_head.obj");
+  // Model model = load_model("assets/diablo3_pose.obj");
+  Model model = load_model("assets/african_head.obj");
   //  Model model = load_model("assets/boggie/body.obj");
 
   SDL_Event event;
@@ -328,7 +325,6 @@ int main() {
         break;
       case SDL_EVENT_KEY_DOWN:
         if (event.key.key == SDLK_N) {
-          printf("N has been pressed\n");
           show_z_buffer = !show_z_buffer;
         }
         break;
