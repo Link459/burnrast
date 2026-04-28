@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "image.h"
 #include "model.h"
 
 #define BURNRAST_SDL_CHECK(x)                                                  \
@@ -19,6 +20,9 @@
 
 #define min(a, b) (a < b ? a : b)
 #define max(a, b) (a > b ? a : b)
+
+Image z_buffer;
+bool show_z_buffer = false;
 
 typedef struct {
   uint32_t r;
@@ -199,6 +203,13 @@ void triangle_aabb(SDL_Surface *canvas, Vec3 a, Vec3 b, Vec3 c,
 
       float z = (alpha * a.z + beta * b.z + gamma * c.z);
 
+      float cmp_z;
+      image_get(&z_buffer, x, y, &cmp_z);
+      if (cmp_z >= z) {
+        continue;
+      }
+      image_set(&z_buffer, x, y, &z);
+
       /*Color new_color = {
           .r = (alpha * BLUE.r + beta * GREEN.r + gamma * RED.r),
           .g = (alpha * BLUE.g + beta * GREEN.g + gamma * RED.g),
@@ -209,8 +220,13 @@ void triangle_aabb(SDL_Surface *canvas, Vec3 a, Vec3 b, Vec3 c,
       if (k > 0.1f) {
         continue;
       }*/
+      if (show_z_buffer) {
+        Color z_color = {z, z, z};
+        set_color(canvas, x, y, &z_color);
+      } else {
 
-      set_color(canvas, x, y, color);
+        set_color(canvas, x, y, color);
+      }
     }
   }
 }
@@ -286,28 +302,20 @@ void draw_model(SDL_Surface *canvas, Model *model) {
 }
 
 int main() {
+
   SDL_Init(SDL_INIT_VIDEO);
 
   uint32_t h = 640;
   uint32_t w = 640;
   SDL_Window *window = SDL_CreateWindow("burnrast", w, h, 0);
 
+  z_buffer = image_create(w, h, sizeof(float));
+
   SDL_Surface *canvas = SDL_CreateSurface(w, h, SDL_PIXELFORMAT_RGBA32);
-
-  SDL_LockSurface(canvas);
-
-  SDL_ClearSurface(canvas, 0.0, 0.0, 0.0, 1.0);
 
   Model model = load_model("assets/diablo3_pose.obj");
   // Model model = load_model("assets/african_head.obj");
-  // Model model = load_model("assets/boggie/body.obj");
-  draw_model(canvas, &model);
-  free_model(&model);
-
-  draw_test_triangle(canvas);
-  // draw_test_triangles(canvas);
-  // random_lines(canvas);
-  SDL_UnlockSurface(canvas);
+  //  Model model = load_model("assets/boggie/body.obj");
 
   SDL_Event event;
   bool run = true;
@@ -318,15 +326,36 @@ int main() {
       case SDL_EVENT_QUIT:
         run = false;
         break;
+      case SDL_EVENT_KEY_DOWN:
+        if (event.key.key == SDLK_N) {
+          printf("N has been pressed\n");
+          show_z_buffer = !show_z_buffer;
+        }
+        break;
       default:
         break;
       }
     }
 
+    float zero = 0.0;
+    image_clear(&z_buffer, &zero);
+    SDL_LockSurface(canvas);
+
+    SDL_ClearSurface(canvas, 0.0, 0.0, 0.0, 1.0);
+
+    draw_model(canvas, &model);
+
+    draw_test_triangle(canvas);
+    // draw_test_triangles(canvas);
+    // random_lines(canvas);
+    SDL_UnlockSurface(canvas);
+
     SDL_Surface *window_surface = SDL_GetWindowSurface(window);
     BURNRAST_SDL_CHECK(SDL_BlitSurface(canvas, 0, window_surface, 0))
     BURNRAST_SDL_CHECK(SDL_UpdateWindowSurface(window));
   }
+
+  free_model(&model);
   SDL_Quit();
   return 0;
 }
