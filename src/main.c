@@ -267,22 +267,61 @@ void draw_test_triangles(SDL_Surface *canvas) {
   // triangle(canvas, 115, 83, 80, 90, 85, 120, &GREEN);
 }
 
+Mat4 viewport(const int32_t x, const int32_t y, const uint32_t w,
+              const uint32_t h) {
+  Vec4 a = {w / 2.0, 0.0, 0.0, w / 2.0};
+  Vec4 b = {0.0, h / 2.0, 0.0, h / 2.0};
+  Vec4 c = {0.0, 0.0, 1.0, 0.0};
+  Vec4 d = {0.0, 0.0, 0.0, 1.0};
+  Mat4 viewport = {};
+  make_mat4(&a, &b, &c, &d, &viewport);
+  return viewport;
+}
+
 IVec3 project(const SDL_Surface *surface, Vec3 x) {
   IVec3 res;
   res.x = (x.x + 1.0f) * surface->w / 2;
   res.y = (x.y + 1.0f) * surface->h / 2;
   res.z = (x.z + 1.0f) * 255.0f / 2;
+  uint32_t w = 640;
+  uint32_t h = 640;
+
   return res;
 }
 
 Vec3 persp(Vec3 v) {
-  float c = 3.0f;
-  float inv = 1.0 / (1.0 - v.z / c);
+  float f = 3.0f;
+  float inv = 1.0 / (1.0 - v.z / f);
 
   Vec3 res = {};
   res.x = v.x * inv;
   res.y = v.y * inv;
   res.z = v.z * inv;
+  return res;
+}
+
+Mat4 perspective() {
+  float f = 3.0f;
+  Mat4 res = {};
+  res.data[3][2] = -1.0 / f;
+  return res;
+}
+
+Mat4 look_at(const Vec3 *eye, const Vec3 *center, const Vec3 *up) {
+  Vec3 diff = vec3_sub(eye, center);
+  Vec3 n = vec3_normalize(&diff);
+  Vec3 l = vec3_cross(up, &n);
+  l = vec3_normalize(&l);
+
+  Vec3 m = vec3_cross(&n, &l);
+  m = vec3_normalize(&m);
+
+  Vec4 top = {l.x, l.y, l.z, 0.0f};
+  Vec4 mid_top = {m.x, m.y, m.z, 0.0f};
+  Vec4 mid_bottom = {n.x, n.y, n.z, 0.0f};
+  Vec4 bottom = {0.0f, 0.0f, 0.0f, 1.0f};
+  Mat4 res = {};
+  make_mat4(&top, &mid_top, &mid_bottom, &bottom, &res);
   return res;
 }
 
