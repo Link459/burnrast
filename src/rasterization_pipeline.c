@@ -2,9 +2,10 @@
 
 #include "color.h"
 #include "model.h"
+#include <stdlib.h>
 
-Mat4 viewport(const int32_t x, const int32_t y, const uint32_t w,
-              const uint32_t h) {
+Mat4 viewport(const int32_t x, const int32_t y, const int32_t w,
+              const int32_t h) {
   Vec4 a = {w / 2.0, 0.0, 0.0, x + w / 2.0};
   Vec4 b = {0.0, h / 2.0, 0.0, y + h / 2.0};
   Vec4 c = {0.0, 0.0, 1.0, 0.0};
@@ -16,8 +17,14 @@ Mat4 viewport(const int32_t x, const int32_t y, const uint32_t w,
 
 Mat4 perspective() {
   float f = 3.0f;
-  Mat4 res = {};
-  res.data[3][2] = -1.0 / f;
+  Mat4 res = mat4_identity();
+  res.data[2][3] = -1.0 / f;
+
+  /*Vec4 top = {1.0f, 0.0f, 0.0f, 0.0f};
+  Vec4 mid_top = {0.0f, 1.0f, 0.0, 0.0f};
+  Vec4 mid_bottom = {0.0f, 0.0f, 1.0f, 0.0f};
+  Vec4 bottom = {0.0f, 0.0f, -1.0f / f, 1.0f};
+  make_mat4(&top, &mid_top, &mid_bottom, &bottom, &res);*/
   return res;
 }
 
@@ -81,6 +88,7 @@ void create_rasterization_pipeline(uint32_t w, uint32_t h,
   pipeline->show_z_buffer = false;
   pipeline->z_buffer = image_create(w, h, sizeof(float));
   pipeline->canvas = SDL_CreateSurface(w, h, SDL_PIXELFORMAT_RGBA32);
+  pipeline->topology = PRIMITIVE_TOPOLOGY_LINE;
 }
 
 #define min(a, b) (a < b ? a : b)
@@ -95,8 +103,8 @@ float signed_triangle_area(int32_t ax, int32_t ay, int32_t bx, int32_t by,
   return 0.5f * ((ax - cx) * (by - ay) - (ax - bx) * (cy - ay));
 }
 
-void pipeline_triangle_aabb(RasterizationPipeline *pipeline, Vec4 a, Vec4 b,
-                            Vec4 c, const Vertex *vertex_a,
+void pipeline_triangle_aabb(RasterizationPipeline *pipeline, Vec3 a, Vec3 b,
+                            Vec3 c, const Vertex *vertex_a,
                             const Vertex *vertex_b, const Vertex *vertex_c) {
   float min_x = min(a.x, min(b.x, c.x));
   float min_y = min(a.y, min(b.y, c.y));
@@ -157,6 +165,57 @@ void pipeline_triangle_aabb(RasterizationPipeline *pipeline, Vec4 a, Vec4 b,
   }
 }
 
+#define BURNRAST_SWAP(a, b)                                                    \
+  int32_t tmp_##a = a;                                                         \
+  a = b;                                                                       \
+  b = tmp_##a
+
+void line(SDL_Surface *canvas, float ax, float ay, float bx, float by,
+          const Color *color) {
+  /*for (float t = 0.0; t < 1.0; t += 0.02) {
+    int32_t new_x = round(ax + (bx - ax) * t);
+    int32_t new_y = round(ay + (by - ay) * t);
+    set_color(canvas, new_x, new_y, color);
+  }*/
+
+  bool steep = fabsf(ax - bx) < fabsf(ay - by);
+
+  if (steep) {
+    BURNRAST_SWAP(ax, ay);
+    BURNRAST_SWAP(bx, by);
+  }
+
+  if (ax > bx) {
+    BURNRAST_SWAP(ax, bx);
+    BURNRAST_SWAP(ay, by);
+  }
+
+  float y = ay;
+  // int ierror = 0;
+  for (int32_t x = ax; x <= bx; x++) {
+    // float t = (x - ax) / (float)(bx - ax);
+    // int32_t y = round(ay + (by - ay) * t);
+
+    if (steep) {
+      set_color(canvas, y, x, color);
+    } else {
+      set_color(canvas, x, y, color);
+    }
+
+    y += (by - ay) / (float)(bx - ax);
+    // ierror += 2 * abs(by - ay);
+    // y += (by > ay ? 1 : -1) * (ierror > bx - ax);
+    // ierror -= 2 * abs(bx - ax) * (ierror > bx - ax);
+  }
+}
+
+void triangle_outline(RasterizationPipeline *pipeline, Vec3 a, Vec3 b, Vec3 c,
+                      const Color *color) {
+  line(pipeline->canvas, a.x, a.y, b.x, b.y, color);
+  line(pipeline->canvas, b.x, b.y, c.x, c.y, color);
+  line(pipeline->canvas, c.x, c.y, a.x, a.y, color);
+}
+
 void rasterize(RasterizationPipeline *pipeline, const Vec4 clip0,
                const Vec4 clip1, const Vec4 clip2, const Vertex *vertex_a,
                const Vertex *vertex_b, const Vertex *vertex_c) {
@@ -165,29 +224,40 @@ void rasterize(RasterizationPipeline *pipeline, const Vec4 clip0,
           clip0.x / clip0.w,
           clip0.y / clip0.w,
           clip0.z / clip0.w,
-          clip0.w / clip0.w,
+          1.0f, // clip0.w / clip0.w,
       },
       {
           clip1.x / clip1.w,
           clip1.y / clip1.w,
           clip1.z / clip1.w,
-          clip1.w / clip1.w,
+          1.0f, // clip1.w / clip1.w,
       },
       {
           clip2.x / clip2.w,
           clip2.y / clip2.w,
           clip2.z / clip2.w,
-          clip2.w / clip2.w,
+          1.0f, // clip2.w / clip2.w,
       },
   };
 
-  /*Vec4 screen0 = mat4_mul_vec(&pipeline->viewport, &ndc[0]);
-  Vec4 screen1 = mat4_mul_vec(&pipeline->viewport, &ndc[1]);
-  Vec4 screen2 = mat4_mul_vec(&pipeline->viewport, &ndc[2]);
+  Vec3 screen0 = viewport_project(pipeline->canvas, vec3_from_vec4(ndc[0]));
+  Vec3 screen1 = viewport_project(pipeline->canvas, vec3_from_vec4(ndc[1]));
+  Vec3 screen2 = viewport_project(pipeline->canvas, vec3_from_vec4(ndc[2]));
 
-  pipeline_triangle_aabb(pipeline, screen0, screen1, screen2);*/
-  pipeline_triangle_aabb(pipeline, ndc[0], ndc[1], ndc[2], vertex_a, vertex_b,
-                         vertex_c);
+  /*ndc[0] = mat4_mul_vec(&pipeline->viewport, &ndc[0]);
+  ndc[1] = mat4_mul_vec(&pipeline->viewport, &ndc[1]);
+  ndc[2] = mat4_mul_vec(&pipeline->viewport, &ndc[2]);
+
+  Vec3 screen0 = {ndc[0].x, ndc[0].y, ndc[0].z};
+  Vec3 screen1 = {ndc[1].x, ndc[1].y, ndc[1].z};
+  Vec3 screen2 = {ndc[2].x, ndc[2].y, ndc[2].z};*/
+
+  if (pipeline->topology == PRIMITIVE_TOPOLOGY_TRIANGLE) {
+    pipeline_triangle_aabb(pipeline, screen0, screen1, screen2, vertex_a,
+                           vertex_b, vertex_c);
+  } else if (pipeline->topology == PRIMITIVE_TOPOLOGY_LINE) {
+    triangle_outline(pipeline, screen0, screen1, screen2, &RED);
+  }
 }
 
 Vec4 apply_transform(const RasterizationPipeline *pipeline, Vec3 in) {
@@ -198,13 +268,13 @@ Vec4 apply_transform(const RasterizationPipeline *pipeline, Vec3 in) {
       1.0f,
   };
 
-  Vec3 r = viewport_project(pipeline->canvas, persp(rot(&in)));
+  /*Vec3 r = persp(in);
   res.x = r.x;
   res.y = r.y;
-  res.z = r.z;
+  res.z = r.z;*/
 
   // res = mat4_mul_vec(&pipeline->view, &res);
-  //  res = mat4_mul_vec(&pipeline->projection, &res);
+  res = mat4_mul_vec(&pipeline->projection, &res);
   return res;
 }
 

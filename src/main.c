@@ -27,52 +27,6 @@
 Image z_buffer;
 bool show_z_buffer = false;
 
-void line(SDL_Surface *canvas, int32_t ax, int32_t ay, int32_t bx, int32_t by,
-          const Color *color) {
-  /*for (float t = 0.0; t < 1.0; t += 0.02) {
-    int32_t new_x = round(ax + (bx - ax) * t);
-    int32_t new_y = round(ay + (by - ay) * t);
-    set_color(canvas, new_x, new_y, color);
-  }*/
-
-  bool steep = abs(ax - bx) < abs(ay - by);
-
-  if (steep) {
-    BURNRAST_SWAP(ax, ay);
-    BURNRAST_SWAP(bx, by);
-  }
-
-  if (ax > bx) {
-    BURNRAST_SWAP(ax, bx);
-    BURNRAST_SWAP(ay, by);
-  }
-
-  float y = ay;
-  // int ierror = 0;
-  for (int32_t x = ax; x <= bx; x++) {
-    // float t = (x - ax) / (float)(bx - ax);
-    // int32_t y = round(ay + (by - ay) * t);
-
-    if (steep) {
-      set_color(canvas, y, x, color);
-    } else {
-      set_color(canvas, x, y, color);
-    }
-
-    y += (by - ay) / (float)(bx - ax);
-    // ierror += 2 * abs(by - ay);
-    // y += (by > ay ? 1 : -1) * (ierror > bx - ax);
-    // ierror -= 2 * abs(bx - ax) * (ierror > bx - ax);
-  }
-}
-
-void triangle_outline(SDL_Surface *canvas, int32_t ax, int32_t ay, int32_t bx,
-                      int32_t by, int32_t cx, int32_t cy, const Color *color) {
-  line(canvas, ax, ay, bx, by, color);
-  line(canvas, bx, by, cx, cy, color);
-  line(canvas, cx, cy, ax, ay, color);
-}
-
 void triangle_scanline(SDL_Surface *canvas, int32_t ax, int32_t ay, int32_t bx,
                        int32_t by, int32_t cx, int32_t cy, const Color *color) {
   // Sort a, b & c such that a is the smallest
@@ -191,7 +145,7 @@ void random_lines(SDL_Surface *canvas) {
         .g = rand() % 255,
         .b = rand() % 255,
     };
-    line(canvas, ax, ay, bx, by, &color);
+    // line(canvas, ax, ay, bx, by, &color);
   }
 }
 
@@ -257,7 +211,15 @@ int main() {
         if (event.key.key == SDLK_N) {
           show_z_buffer = !show_z_buffer;
           pipeline.show_z_buffer = !pipeline.show_z_buffer;
+        } else if (event.key.key == SDLK_F) {
+          static bool f = false;
+          f = !f;
+          // SDL_SetWindowFullscreen(window, f);
         }
+        break;
+      case SDL_EVENT_WINDOW_RESIZED:
+        /*create_rasterization_pipeline(event.window.data1, event.window.data2,
+                                      &pipeline);*/
         break;
       default:
         break;

@@ -16,6 +16,7 @@ typedef struct {
   float z;
 } Vec3;
 
+
 static inline float vec3_length(const Vec3 *v) {
   return sqrtf(v->x * v->x + v->y * v->y + v->z * v->z);
 }
@@ -92,6 +93,26 @@ typedef struct {
 
 static inline void make_mat4(const Vec4 *a, const Vec4 *b, const Vec4 *c,
                              const Vec4 *d, Mat4 *res) {
+  /*res->data[0][0] = a->x;
+  res->data[0][1] = b->x;
+  res->data[0][2] = c->x;
+  res->data[0][3] = d->x;
+
+  res->data[1][0] = a->y;
+  res->data[1][1] = b->y;
+  res->data[1][2] = c->y;
+  res->data[1][3] = d->y;
+
+  res->data[2][0] = a->z;
+  res->data[2][1] = b->z;
+  res->data[2][2] = c->z;
+  res->data[2][3] = d->z;
+
+  res->data[3][0] = a->w;
+  res->data[3][1] = b->w;
+  res->data[3][2] = c->w;
+  res->data[3][3] = d->w;*/
+
   res->data[0][0] = a->x;
   res->data[0][1] = a->y;
   res->data[0][2] = a->z;
@@ -178,6 +199,12 @@ static inline Vec3 mat3_mul_vec(const Mat3 *mat, const Vec3 *v) {
   res.z =
       mat->data[0][2] * v->x + mat->data[1][2] * v->y + mat->data[2][2] * v->z;
   return res;
+}
+
+
+static inline Vec3 vec3_from_vec4(Vec4 v) {
+    Vec3 res = {v.x,v.y,v.z};
+    return res;
 }
 
 #endif /* VEC_H */

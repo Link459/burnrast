@@ -6,6 +6,11 @@
 #include "vec.h"
 #include <SDL3/SDL_surface.h>
 
+typedef enum {
+  PRIMITIVE_TOPOLOGY_LINE,
+  PRIMITIVE_TOPOLOGY_TRIANGLE,
+}PrimitiveTopology ;
+
 typedef struct {
   Mat4 viewport;
   Mat4 projection;
@@ -13,14 +18,15 @@ typedef struct {
   SDL_Surface *canvas;
   bool show_z_buffer;
   Image z_buffer;
+  PrimitiveTopology topology;
 } RasterizationPipeline;
 
 void create_rasterization_pipeline(uint32_t w, uint32_t h,
                                    RasterizationPipeline *pipeline);
 void pipeline_draw(RasterizationPipeline *pipeline, const Model *model);
 
-Mat4 viewport(const int32_t x, const int32_t y, const uint32_t w,
-              const uint32_t h);
+Mat4 viewport(const int32_t x, const int32_t y, const int32_t w,
+              const int32_t h);
 Mat4 perspective();
 Mat4 look_at(const Vec3 *eye, const Vec3 *center, const Vec3 *up);
 
@@ -28,6 +34,7 @@ float signed_triangle_area(int32_t ax, int32_t ay, int32_t bx, int32_t by,
                            int32_t cx, int32_t cy);
 
 Vec3 viewport_project(const SDL_Surface *surface, Vec3 x);
+
 Vec3 persp(Vec3 v);
 Vec3 rot(const Vec3 *v);
 
