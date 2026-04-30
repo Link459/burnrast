@@ -6,8 +6,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "color.h"
 #include "image.h"
 #include "model.h"
+#include "rasterization_pipeline.h"
 #include "vec.h"
 
 #define BURNRAST_SDL_CHECK(x)                                                  \
@@ -25,51 +27,6 @@
 
 Image z_buffer;
 bool show_z_buffer = false;
-
-typedef struct {
-  uint32_t r;
-  uint32_t g;
-  uint32_t b;
-} Color;
-
-const static Color WHITE = {
-    .r = 255,
-    .g = 255,
-    .b = 255,
-};
-
-const static Color RED = {
-    .r = 255,
-    .g = 0,
-    .b = 0,
-};
-const static Color GREEN = {
-    .r = 0,
-    .g = 255,
-    .b = 0,
-};
-const static Color BLUE = {
-    .r = 0,
-    .g = 0,
-    .b = 255,
-};
-const static Color YELLOW = {
-    .r = 0,
-    .g = 255,
-    .b = 255,
-};
-
-void set_color(SDL_Surface *canvas, uint32_t x, uint32_t y,
-               const Color *color) {
-  if (x > canvas->w || y > canvas->h) {
-    return;
-  }
-  uint32_t *buffer = canvas->pixels;
-  uint32_t offset = (canvas->h - y) * canvas->w + x;
-  uint32_t mapped_color =
-      SDL_MapSurfaceRGB(canvas, color->r, color->g, color->b);
-  buffer[offset] = mapped_color;
-}
 
 void line(SDL_Surface *canvas, int32_t ax, int32_t ay, int32_t bx, int32_t by,
           const Color *color) {
@@ -165,15 +122,6 @@ void triangle_scanline(SDL_Surface *canvas, int32_t ax, int32_t ay, int32_t bx,
   }
 }
 
-float signed_triangle_area(int32_t ax, int32_t ay, int32_t bx, int32_t by,
-                           int32_t cx, int32_t cy) {
-  // 1/2 * g * h
-  /*return 0.5f * ((by - ay) * (bx + ax) + (cy - by) * (cx + bx) +
-                 (ay - cy) * (ax + cx));*/
-
-  return 0.5f * ((ax - cx) * (by - ay) - (ax - bx) * (cy - ay));
-}
-
 void triangle_aabb(SDL_Surface *canvas, IVec3 a, IVec3 b, IVec3 c,
                    const Color *color) {
   float min_x = min(a.x, min(b.x, c.x));
@@ -267,24 +215,11 @@ void draw_test_triangles(SDL_Surface *canvas) {
   // triangle(canvas, 115, 83, 80, 90, 85, 120, &GREEN);
 }
 
-Mat4 viewport(const int32_t x, const int32_t y, const uint32_t w,
-              const uint32_t h) {
-  Vec4 a = {w / 2.0, 0.0, 0.0, w / 2.0};
-  Vec4 b = {0.0, h / 2.0, 0.0, h / 2.0};
-  Vec4 c = {0.0, 0.0, 1.0, 0.0};
-  Vec4 d = {0.0, 0.0, 0.0, 1.0};
-  Mat4 viewport = {};
-  make_mat4(&a, &b, &c, &d, &viewport);
-  return viewport;
-}
-
 IVec3 project(const SDL_Surface *surface, Vec3 x) {
   IVec3 res;
   res.x = (x.x + 1.0f) * surface->w / 2;
   res.y = (x.y + 1.0f) * surface->h / 2;
   res.z = (x.z + 1.0f) * 255.0f / 2;
-  uint32_t w = 640;
-  uint32_t h = 640;
 
   return res;
 }
@@ -297,31 +232,6 @@ Vec3 persp(Vec3 v) {
   res.x = v.x * inv;
   res.y = v.y * inv;
   res.z = v.z * inv;
-  return res;
-}
-
-Mat4 perspective() {
-  float f = 3.0f;
-  Mat4 res = {};
-  res.data[3][2] = -1.0 / f;
-  return res;
-}
-
-Mat4 look_at(const Vec3 *eye, const Vec3 *center, const Vec3 *up) {
-  Vec3 diff = vec3_sub(eye, center);
-  Vec3 n = vec3_normalize(&diff);
-  Vec3 l = vec3_cross(up, &n);
-  l = vec3_normalize(&l);
-
-  Vec3 m = vec3_cross(&n, &l);
-  m = vec3_normalize(&m);
-
-  Vec4 top = {l.x, l.y, l.z, 0.0f};
-  Vec4 mid_top = {m.x, m.y, m.z, 0.0f};
-  Vec4 mid_bottom = {n.x, n.y, n.z, 0.0f};
-  Vec4 bottom = {0.0f, 0.0f, 0.0f, 1.0f};
-  Mat4 res = {};
-  make_mat4(&top, &mid_top, &mid_bottom, &bottom, &res);
   return res;
 }
 
@@ -358,13 +268,13 @@ int main() {
   uint32_t w = 640;
   SDL_Window *window = SDL_CreateWindow("burnrast", w, h, 0);
 
-  z_buffer = image_create(w, h, sizeof(float));
+  Model model = load_model("assets/diablo3_pose.obj");
+  // Model model = load_model("assets/african_head.obj");
+  // Model model = load_model("assets/boggie/body.obj");
 
-  SDL_Surface *canvas = SDL_CreateSurface(w, h, SDL_PIXELFORMAT_RGBA32);
+  RasterizationPipeline pipeline = {};
 
-  // Model model = load_model("assets/diablo3_pose.obj");
-  Model model = load_model("assets/african_head.obj");
-  //  Model model = load_model("assets/boggie/body.obj");
+  create_rasterization_pipeline(w, h, &pipeline);
 
   SDL_Event event;
   bool run = true;
@@ -378,6 +288,7 @@ int main() {
       case SDL_EVENT_KEY_DOWN:
         if (event.key.key == SDLK_N) {
           show_z_buffer = !show_z_buffer;
+          pipeline.show_z_buffer = !pipeline.show_z_buffer;
         }
         break;
       default:
@@ -387,19 +298,22 @@ int main() {
 
     float zero = 0.0;
     image_clear(&z_buffer, &zero);
-    SDL_LockSurface(canvas);
+    image_clear(&pipeline.z_buffer, &zero);
 
-    SDL_ClearSurface(canvas, 0.0, 0.0, 0.0, 1.0);
+    SDL_LockSurface(pipeline.canvas);
 
-    draw_model(canvas, &model);
+    SDL_ClearSurface(pipeline.canvas, 0.0, 0.0, 0.0, 1.0);
 
-    draw_test_triangle(canvas);
+    draw_model(pipeline.canvas, &model);
+    // pipeline_draw(&pipeline, &model);
+
+    draw_test_triangle(pipeline.canvas);
     // draw_test_triangles(canvas);
     // random_lines(canvas);
-    SDL_UnlockSurface(canvas);
+    SDL_UnlockSurface(pipeline.canvas);
 
     SDL_Surface *window_surface = SDL_GetWindowSurface(window);
-    BURNRAST_SDL_CHECK(SDL_BlitSurface(canvas, 0, window_surface, 0))
+    BURNRAST_SDL_CHECK(SDL_BlitSurface(pipeline.canvas, 0, window_surface, 0))
     BURNRAST_SDL_CHECK(SDL_UpdateWindowSurface(window));
   }
 

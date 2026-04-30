@@ -16,11 +16,11 @@ typedef struct {
   float z;
 } Vec3;
 
-inline float vec3_length(const Vec3 *v) {
+static inline float vec3_length(const Vec3 *v) {
   return sqrtf(v->x * v->x + v->y * v->y + v->z * v->z);
 }
 
-inline Vec3 vec3_normalize(const Vec3 *v) {
+static inline Vec3 vec3_normalize(const Vec3 *v) {
   float mag = vec3_length(v);
   Vec3 res;
   res.x = v->x / mag;
@@ -29,36 +29,36 @@ inline Vec3 vec3_normalize(const Vec3 *v) {
   return res;
 }
 
-inline Vec3 vec3_cross(const Vec3 *a, const Vec3 *b) {
-  Vec3 res{};
+static inline Vec3 vec3_cross(const Vec3 *a, const Vec3 *b) {
+  Vec3 res = {};
   res.x = a->y * b->z - a->z * b->y;
   res.y = a->z * b->x - a->x * b->z;
   res.z = a->x * b->y - a->y * b->x;
   return res;
 }
 
-inline Vec3 vec3_add_scalar(const Vec3 *vec, float v) {
+static inline Vec3 vec3_add_scalar(const Vec3 *vec, float v) {
   Vec3 res;
   res.x = vec->x + v;
   res.y = vec->y + v;
   res.z = vec->z + v;
   return res;
 }
-inline Vec3 vec3_sub_scalar(const Vec3 *vec, float v) {
+static inline Vec3 vec3_sub_scalar(const Vec3 *vec, float v) {
   Vec3 res;
   res.x = vec->x - v;
   res.y = vec->y - v;
   res.z = vec->z - v;
   return res;
 }
-inline Vec3 vec3_add(const Vec3 *a, const Vec3 *b) {
+static inline Vec3 vec3_add(const Vec3 *a, const Vec3 *b) {
   Vec3 res;
   res.x = a->x + b->x;
   res.y = a->y + b->y;
   res.z = a->z + b->z;
   return res;
 }
-inline Vec3 vec3_sub(const Vec3 *a, const Vec3 *b) {
+static inline Vec3 vec3_sub(const Vec3 *a, const Vec3 *b) {
   Vec3 res;
   res.x = a->x - b->x;
   res.y = a->y - b->y;
@@ -113,7 +113,7 @@ static inline void make_mat4(const Vec4 *a, const Vec4 *b, const Vec4 *c,
   res->data[3][3] = d->w;
 }
 
-inline Vec4 mat4_mul_vec(const Mat4 *mat, Vec4 *v) {
+static inline Vec4 mat4_mul_vec(const Mat4 *mat, Vec4 *v) {
   Vec4 res = {};
   res.x = mat->data[0][0] * v->x + mat->data[1][0] * v->y +
           mat->data[2][0] * v->z + mat->data[3][0] * v->w;

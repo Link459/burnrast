@@ -1,6 +1,6 @@
 LDFLAGS = -lSDL3 -lm
 CC = gcc
-SRCS = src/main.c src/model.c src/image.c
+SRCS = src/main.c src/model.c src/image.c src/rasterization_pipeline.c
 
 build:
 	$(CC) $(SRCS) $(LDFLAGS) -o burnrast
