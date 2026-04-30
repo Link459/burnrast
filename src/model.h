@@ -1,6 +1,7 @@
 #ifndef MODEL_H
 #define MODEL_H
 
+#include "color.h"
 #include "vec.h"
 
 #include <stdint.h>
@@ -9,7 +10,7 @@ typedef struct {
   Vec3 position;
   Vec3 uvw;
   Vec3 normal;
-  Vec3 color;
+  Color color;
 } Vertex;
 
 typedef struct {

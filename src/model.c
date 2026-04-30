@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// TODO: figure out loading normals/uv coords
 Model load_model(const char *filepath) {
   uint32_t vertex_count = 0;
   uint32_t face_count = 0;
@@ -41,10 +42,10 @@ Model load_model(const char *filepath) {
       }
 
       vertices[current_vertex_pos].position = position;
-      Vec3 color = {};
-      color.x = rand() % 255;
-      color.y = rand() % 255;
-      color.z = rand() % 255;
+      Color color = {};
+      color.r = rand() % 255;
+      color.g = rand() % 255;
+      color.b = rand() % 255;
       vertices[current_vertex_pos].color = color;
       current_vertex_pos++;
     } else if (current_line[0] == 'v' && current_line[1] == 't') {
@@ -89,8 +90,8 @@ Model load_model(const char *filepath) {
   }
 
   assert(current_vertex_pos == vertex_count);
-  //assert(current_vertex_uv == vertex_count);
-  //assert(current_vertex_normal == vertex_count);
+  // assert(current_vertex_uv == vertex_count);
+  // assert(current_vertex_normal == vertex_count);
 
   fclose(file);
 

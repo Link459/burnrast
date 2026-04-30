@@ -1,7 +1,6 @@
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_video.h>
 #include <assert.h>
-#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -122,7 +121,7 @@ void triangle_scanline(SDL_Surface *canvas, int32_t ax, int32_t ay, int32_t bx,
   }
 }
 
-void triangle_aabb(SDL_Surface *canvas, IVec3 a, IVec3 b, IVec3 c,
+void triangle_aabb(SDL_Surface *canvas, Vec3 a, Vec3 b, Vec3 c,
                    const Color *color) {
   float min_x = min(a.x, min(b.x, c.x));
   float min_y = min(a.y, min(b.y, c.y));
@@ -175,8 +174,7 @@ void triangle_aabb(SDL_Surface *canvas, IVec3 a, IVec3 b, IVec3 c,
   }
 }
 
-void triangle(SDL_Surface *canvas, IVec3 a, IVec3 b, IVec3 c,
-              const Color *color) {
+void triangle(SDL_Surface *canvas, Vec3 a, Vec3 b, Vec3 c, const Color *color) {
   triangle_aabb(canvas, a, b, c, color);
   // triangle_scanline(canvas, ax, ay, bx, by, cx, cy, color);
   // triangle_outline(canvas, ax, ay, bx, by, cx, cy, color);
@@ -198,9 +196,9 @@ void random_lines(SDL_Surface *canvas) {
 }
 
 void draw_test_triangle(SDL_Surface *canvas) {
-  IVec3 a = {.x = 7, .y = 4, .z = 13};
-  IVec3 b = {.x = 55, .y = 39, .z = 128};
-  IVec3 c = {.x = 23, .y = 59, .z = 255};
+  Vec3 a = {.x = 7, .y = 4, .z = 13};
+  Vec3 b = {.x = 55, .y = 39, .z = 128};
+  Vec3 c = {.x = 23, .y = 59, .z = 255};
   /*line(canvas, ax, ay, bx, by, &BLUE);
   line(canvas, cx, cy, bx, by, &GREEN);
   line(canvas, cx, cy, ax, ay, &YELLOW);
@@ -215,48 +213,17 @@ void draw_test_triangles(SDL_Surface *canvas) {
   // triangle(canvas, 115, 83, 80, 90, 85, 120, &GREEN);
 }
 
-IVec3 project(const SDL_Surface *surface, Vec3 x) {
-  IVec3 res;
-  res.x = (x.x + 1.0f) * surface->w / 2;
-  res.y = (x.y + 1.0f) * surface->h / 2;
-  res.z = (x.z + 1.0f) * 255.0f / 2;
-
-  return res;
-}
-
-Vec3 persp(Vec3 v) {
-  float f = 3.0f;
-  float inv = 1.0 / (1.0 - v.z / f);
-
-  Vec3 res = {};
-  res.x = v.x * inv;
-  res.y = v.y * inv;
-  res.z = v.z * inv;
-  return res;
-}
-
-Vec3 rot(const Vec3 *v) {
-  float a = -M_PI / 6;
-  Mat3 rotation;
-  Vec3 top = {cosf(a), 0, sinf(a)};
-  Vec3 mid = {0, 1, 0};
-  Vec3 bottom = {-sinf(a), 0, cosf(a)};
-  make_mat3(&top, &mid, &bottom, &rotation);
-  return mat3_mul_vec(&rotation, v);
-}
-
 void draw_model(SDL_Surface *canvas, Model *model) {
   for (uint32_t i = 0; i < model->face_count; i++) {
     Vertex *a = &model->vertices[model->face_vertices[i * 3 + 0]];
     Vertex *b = &model->vertices[model->face_vertices[i * 3 + 1]];
     Vertex *c = &model->vertices[model->face_vertices[i * 3 + 2]];
 
-    IVec3 a_proj = project(canvas, persp(rot(&a->position)));
-    IVec3 b_proj = project(canvas, persp(rot(&b->position)));
-    IVec3 c_proj = project(canvas, persp(rot(&c->position)));
+    Vec3 a_proj = viewport_project(canvas, persp(rot(&a->position)));
+    Vec3 b_proj = viewport_project(canvas, persp(rot(&b->position)));
+    Vec3 c_proj = viewport_project(canvas, persp(rot(&c->position)));
 
-    Color color = {a->color.x, a->color.y, a->color.z};
-    triangle(canvas, a_proj, b_proj, c_proj, &color);
+    triangle(canvas, a_proj, b_proj, c_proj, &a->color);
   }
 }
 
@@ -268,13 +235,14 @@ int main() {
   uint32_t w = 640;
   SDL_Window *window = SDL_CreateWindow("burnrast", w, h, 0);
 
-  Model model = load_model("assets/diablo3_pose.obj");
-  // Model model = load_model("assets/african_head.obj");
+  // Model model = load_model("assets/diablo3_pose.obj");
+  Model model = load_model("assets/african_head.obj");
   // Model model = load_model("assets/boggie/body.obj");
 
   RasterizationPipeline pipeline = {};
 
   create_rasterization_pipeline(w, h, &pipeline);
+  z_buffer = image_create(w, h, sizeof(float));
 
   SDL_Event event;
   bool run = true;
@@ -304,8 +272,8 @@ int main() {
 
     SDL_ClearSurface(pipeline.canvas, 0.0, 0.0, 0.0, 1.0);
 
-    draw_model(pipeline.canvas, &model);
-    // pipeline_draw(&pipeline, &model);
+    // draw_model(pipeline.canvas, &model);
+    pipeline_draw(&pipeline, &model);
 
     draw_test_triangle(pipeline.canvas);
     // draw_test_triangles(canvas);

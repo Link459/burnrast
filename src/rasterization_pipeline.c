@@ -39,6 +39,36 @@ Mat4 look_at(const Vec3 *eye, const Vec3 *center, const Vec3 *up) {
   return res;
 }
 
+Vec3 viewport_project(const SDL_Surface *surface, Vec3 x) {
+  Vec3 res;
+  res.x = (x.x + 1.0f) * surface->w / 2;
+  res.y = (x.y + 1.0f) * surface->h / 2;
+  res.z = (x.z + 1.0f) * 255.0f / 2;
+
+  return res;
+}
+
+Vec3 persp(Vec3 v) {
+  float f = 3.0f;
+  float inv = 1.0 / (1.0 - v.z / f);
+
+  Vec3 res = {};
+  res.x = v.x * inv;
+  res.y = v.y * inv;
+  res.z = v.z * inv;
+  return res;
+}
+
+Vec3 rot(const Vec3 *v) {
+  float a = -M_PI / 6;
+  Mat3 rotation;
+  Vec3 top = {cosf(a), 0, sinf(a)};
+  Vec3 mid = {0, 1, 0};
+  Vec3 bottom = {-sinf(a), 0, cosf(a)};
+  make_mat3(&top, &mid, &bottom, &rotation);
+  return mat3_mul_vec(&rotation, v);
+}
+
 void create_rasterization_pipeline(uint32_t w, uint32_t h,
                                    RasterizationPipeline *pipeline) {
   Vec3 eye = {-1, 0, 2};
@@ -66,7 +96,8 @@ float signed_triangle_area(int32_t ax, int32_t ay, int32_t bx, int32_t by,
 }
 
 void pipeline_triangle_aabb(RasterizationPipeline *pipeline, Vec4 a, Vec4 b,
-                            Vec4 c) {
+                            Vec4 c, const Vertex *vertex_a,
+                            const Vertex *vertex_b, const Vertex *vertex_c) {
   float min_x = min(a.x, min(b.x, c.x));
   float min_y = min(a.y, min(b.y, c.y));
   float max_x = max(a.x, max(b.x, c.x));
@@ -97,11 +128,20 @@ void pipeline_triangle_aabb(RasterizationPipeline *pipeline, Vec4 a, Vec4 b,
       }
       image_set(&pipeline->z_buffer, x, y, &z);
 
-      /*Color new_color = {
-          .r = (alpha * BLUE.r + beta * GREEN.r + gamma * RED.r),
-          .g = (alpha * BLUE.g + beta * GREEN.g + gamma * RED.g),
-          .b = (alpha * BLUE.b + beta * GREEN.b + gamma * RED.b),
-      };*/
+      Color new_color = {
+          .r = (alpha * vertex_a->color.r + beta * vertex_b->color.r +
+                gamma * vertex_c->color.r),
+          .g = (alpha * vertex_a->color.g + beta * vertex_b->color.g +
+                gamma * vertex_c->color.g),
+          .b = (alpha * vertex_a->color.b + beta * vertex_b->color.b +
+                gamma * vertex_c->color.b),
+      };
+
+      Color new_uv = {.r = (alpha * vertex_a->uvw.x + beta * vertex_b->uvw.x +
+                            gamma * vertex_c->uvw.x),
+                      .g = (alpha * vertex_a->uvw.y + beta * vertex_b->uvw.y +
+                            gamma * vertex_c->uvw.y),
+                      .b = 0.0f};
 
       /*float k = min(alpha, min(beta, gamma));
       if (k > 0.1f) {
@@ -111,14 +151,15 @@ void pipeline_triangle_aabb(RasterizationPipeline *pipeline, Vec4 a, Vec4 b,
         Color z_color = {z, z, z};
         set_color(pipeline->canvas, x, y, &z_color);
       } else {
-        set_color(pipeline->canvas, x, y, &RED);
+        set_color(pipeline->canvas, x, y, &new_color);
       }
     }
   }
 }
 
 void rasterize(RasterizationPipeline *pipeline, const Vec4 clip0,
-               const Vec4 clip1, const Vec4 clip2) {
+               const Vec4 clip1, const Vec4 clip2, const Vertex *vertex_a,
+               const Vertex *vertex_b, const Vertex *vertex_c) {
   Vec4 ndc[3] = {
       {
           clip0.x / clip0.w,
@@ -140,11 +181,13 @@ void rasterize(RasterizationPipeline *pipeline, const Vec4 clip0,
       },
   };
 
-  Vec4 screen0 = mat4_mul_vec(&pipeline->viewport, &ndc[0]);
+  /*Vec4 screen0 = mat4_mul_vec(&pipeline->viewport, &ndc[0]);
   Vec4 screen1 = mat4_mul_vec(&pipeline->viewport, &ndc[1]);
   Vec4 screen2 = mat4_mul_vec(&pipeline->viewport, &ndc[2]);
 
-  pipeline_triangle_aabb(pipeline, screen0, screen1, screen2);
+  pipeline_triangle_aabb(pipeline, screen0, screen1, screen2);*/
+  pipeline_triangle_aabb(pipeline, ndc[0], ndc[1], ndc[2], vertex_a, vertex_b,
+                         vertex_c);
 }
 
 Vec4 apply_transform(const RasterizationPipeline *pipeline, Vec3 in) {
@@ -154,6 +197,11 @@ Vec4 apply_transform(const RasterizationPipeline *pipeline, Vec3 in) {
       in.z,
       1.0f,
   };
+
+  Vec3 r = viewport_project(pipeline->canvas, persp(rot(&in)));
+  res.x = r.x;
+  res.y = r.y;
+  res.z = r.z;
 
   // res = mat4_mul_vec(&pipeline->view, &res);
   //  res = mat4_mul_vec(&pipeline->projection, &res);
@@ -167,8 +215,9 @@ void pipeline_draw(RasterizationPipeline *pipeline, const Model *model) {
     Vertex *vertex_c = &model->vertices[model->face_vertices[i * 3 + 2]];
 
     Vec4 clip_a = apply_transform(pipeline, vertex_a->position);
-    Vec4 clip_b = apply_transform(pipeline, vertex_a->position);
-    Vec4 clip_c = apply_transform(pipeline, vertex_a->position);
-    rasterize(pipeline, clip_a, clip_b, clip_c);
+    Vec4 clip_b = apply_transform(pipeline, vertex_b->position);
+    Vec4 clip_c = apply_transform(pipeline, vertex_c->position);
+
+    rasterize(pipeline, clip_a, clip_b, clip_c, vertex_a, vertex_b, vertex_c);
   }
 }

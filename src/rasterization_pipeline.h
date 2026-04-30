@@ -27,4 +27,8 @@ Mat4 look_at(const Vec3 *eye, const Vec3 *center, const Vec3 *up);
 float signed_triangle_area(int32_t ax, int32_t ay, int32_t bx, int32_t by,
                            int32_t cx, int32_t cy);
 
+Vec3 viewport_project(const SDL_Surface *surface, Vec3 x);
+Vec3 persp(Vec3 v);
+Vec3 rot(const Vec3 *v);
+
 #endif /* RASTERIZATION_PIPELINE_H */
