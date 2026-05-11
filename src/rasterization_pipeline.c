@@ -2,7 +2,6 @@
 
 #include "color.h"
 #include "model.h"
-#include <stdlib.h>
 
 Mat4 viewport(const int32_t x, const int32_t y, const int32_t w,
               const int32_t h) {
@@ -88,7 +87,7 @@ void create_rasterization_pipeline(uint32_t w, uint32_t h,
   pipeline->show_z_buffer = false;
   pipeline->z_buffer = image_create(w, h, sizeof(float));
   pipeline->canvas = SDL_CreateSurface(w, h, SDL_PIXELFORMAT_RGBA32);
-  pipeline->topology = PRIMITIVE_TOPOLOGY_LINE;
+  pipeline->topology = PRIMITIVE_TOPOLOGY_TRIANGLE;
 }
 
 #define min(a, b) (a < b ? a : b)

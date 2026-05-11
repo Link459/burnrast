@@ -1,4 +1,5 @@
 #include <SDL3/SDL_init.h>
+#include <SDL3/SDL_time.h>
 #include <SDL3/SDL_video.h>
 #include <assert.h>
 #include <stdint.h>
@@ -198,6 +199,12 @@ int main() {
   create_rasterization_pipeline(w, h, &pipeline);
   z_buffer = image_create(w, h, sizeof(float));
 
+  SDL_Time current_time = 0;
+  SDL_Time previous_time = 0;
+  SDL_GetCurrentTime(&current_time);
+  float average_fps = 0.0f;
+  uint32_t frames = 0;
+
   SDL_Event event;
   bool run = true;
   while (run) {
@@ -226,7 +233,14 @@ int main() {
       }
     }
 
-    float zero = 0.0;
+    previous_time = current_time;
+    SDL_GetCurrentTime(&current_time);
+    float dt = (float)(current_time - previous_time);
+    // Nanoseconds -> Milliseconds
+    dt /= 1000000.0f;
+    printf("fps: %f, Frame Time: %f\n", 1.0 / (dt / 1000.0f), dt);
+
+    float zero = 0.0f;
     image_clear(&z_buffer, &zero);
     image_clear(&pipeline.z_buffer, &zero);
 
@@ -245,6 +259,8 @@ int main() {
     SDL_Surface *window_surface = SDL_GetWindowSurface(window);
     BURNRAST_SDL_CHECK(SDL_BlitSurface(pipeline.canvas, 0, window_surface, 0))
     BURNRAST_SDL_CHECK(SDL_UpdateWindowSurface(window));
+
+    frames++;
   }
 
   free_model(&model);
