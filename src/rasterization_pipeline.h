@@ -3,6 +3,7 @@
 
 #include "image.h"
 #include "model.h"
+#include "shader.h"
 #include "vec.h"
 #include <SDL3/SDL_surface.h>
 
@@ -11,7 +12,7 @@ typedef enum {
   PRIMITIVE_TOPOLOGY_TRIANGLE,
 } PrimitiveTopology;
 
-typedef struct {
+typedef struct RasterizationPipeline {
   Mat4 viewport;
   Mat4 projection;
   Mat4 view;
@@ -19,6 +20,7 @@ typedef struct {
   bool show_z_buffer;
   Image z_buffer;
   PrimitiveTopology topology;
+  VertexShader vertex_shader;
 } RasterizationPipeline;
 
 void create_rasterization_pipeline(uint32_t w, uint32_t h,

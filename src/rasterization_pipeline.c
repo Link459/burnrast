@@ -86,6 +86,24 @@ Vec3 rot(const Vec3 *v) {
   return glms_mat4_mulv3(glms_rotate(glms_mat4_identity(), a, axis), *v, 1.0);
 }
 
+Vec4 simple_vertex_shader(const struct RasterizationPipeline *pipeline,
+                          struct Vertex *vertex) {
+  Vec4 res = {
+      vertex->position.x,
+      vertex->position.y,
+      vertex->position.z,
+      1.0f,
+  };
+
+  /*Vec3 r = persp(in);
+  res.x = r.x;
+  res.y = r.y;
+  res.z = r.z;*/
+
+  // res = mat4_mul_vec(&pipeline->view, &res);
+  return glms_mat4_mulv(pipeline->projection, res);
+}
+
 void create_rasterization_pipeline(uint32_t w, uint32_t h,
                                    RasterizationPipeline *pipeline) {
   Vec3 eye = {-1, 0, 2};
@@ -99,6 +117,7 @@ void create_rasterization_pipeline(uint32_t w, uint32_t h,
   pipeline->z_buffer = image_create(w, h, sizeof(float));
   pipeline->canvas = SDL_CreateSurface(w, h, SDL_PIXELFORMAT_RGBA32);
   pipeline->topology = PRIMITIVE_TOPOLOGY_TRIANGLE;
+  pipeline->vertex_shader = simple_vertex_shader;
 }
 
 #define min(a, b) (a < b ? a : b)
@@ -294,9 +313,13 @@ void pipeline_draw(RasterizationPipeline *pipeline, const Model *model) {
     Vertex *vertex_b = &model->vertices[model->face_vertices[i * 3 + 1]];
     Vertex *vertex_c = &model->vertices[model->face_vertices[i * 3 + 2]];
 
-    Vec4 clip_a = apply_transform(pipeline, vertex_a->position);
+    /*Vec4 clip_a = apply_transform(pipeline, vertex_a->position);
     Vec4 clip_b = apply_transform(pipeline, vertex_b->position);
-    Vec4 clip_c = apply_transform(pipeline, vertex_c->position);
+    Vec4 clip_c = apply_transform(pipeline, vertex_c->position);*/
+
+    Vec4 clip_a = pipeline->vertex_shader(pipeline, vertex_a);
+    Vec4 clip_b = pipeline->vertex_shader(pipeline, vertex_b);
+    Vec4 clip_c = pipeline->vertex_shader(pipeline, vertex_c);
 
     rasterize(pipeline, clip_a, clip_b, clip_c, vertex_a, vertex_b, vertex_c);
   }
