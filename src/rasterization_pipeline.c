@@ -5,19 +5,27 @@
 
 Mat4 viewport(const int32_t x, const int32_t y, const int32_t w,
               const int32_t h) {
-  Vec4 a = {w / 2.0, 0.0, 0.0, x + w / 2.0};
+  /*Vec4 a = {w / 2.0, 0.0, 0.0, x + w / 2.0};
   Vec4 b = {0.0, h / 2.0, 0.0, y + h / 2.0};
   Vec4 c = {0.0, 0.0, 1.0, 0.0};
   Vec4 d = {0.0, 0.0, 0.0, 1.0};
   Mat4 viewport = {};
   make_mat4(&a, &b, &c, &d, &viewport);
+  return viewport;*/
+  Mat4 viewport = glms_mat4_identity();
+  viewport.m00 = w / 2.0;
+  viewport.m03 = x + w / 2.0;
+
+  viewport.m11 = h / 2.0;
+  viewport.m13 = x + h / 2.0;
   return viewport;
 }
 
 Mat4 perspective() {
   float f = 3.0f;
-  Mat4 res = mat4_identity();
-  res.data[2][3] = -1.0 / f;
+  Mat4 res = glms_mat4_identity();
+  // res.data[2][3] = -1.0 / f;
+  res.m23 = -1.0 / f;
 
   /*Vec4 top = {1.0f, 0.0f, 0.0f, 0.0f};
   Vec4 mid_top = {0.0f, 1.0f, 0.0, 0.0f};
@@ -28,7 +36,7 @@ Mat4 perspective() {
 }
 
 Mat4 look_at(const Vec3 *eye, const Vec3 *center, const Vec3 *up) {
-  Vec3 diff = vec3_sub(eye, center);
+  /*Vec3 diff = vec3_sub(eye, center);
   Vec3 n = vec3_normalize(&diff);
   Vec3 l = vec3_cross(up, &n);
   l = vec3_normalize(&l);
@@ -42,7 +50,8 @@ Mat4 look_at(const Vec3 *eye, const Vec3 *center, const Vec3 *up) {
   Vec4 bottom = {0.0f, 0.0f, 0.0f, 1.0f};
   Mat4 res = {};
   make_mat4(&top, &mid_top, &mid_bottom, &bottom, &res);
-  return res;
+  return res;*/
+  return glms_lookat(*eye, *center, *up);
 }
 
 Vec3 viewport_project(const SDL_Surface *surface, Vec3 x) {
@@ -67,12 +76,14 @@ Vec3 persp(Vec3 v) {
 
 Vec3 rot(const Vec3 *v) {
   float a = -M_PI / 6;
-  Mat3 rotation;
+  /*Mat3 rotation;
   Vec3 top = {cosf(a), 0, sinf(a)};
   Vec3 mid = {0, 1, 0};
   Vec3 bottom = {-sinf(a), 0, cosf(a)};
-  make_mat3(&top, &mid, &bottom, &rotation);
-  return mat3_mul_vec(&rotation, v);
+  glms_mat3_make([ top, mid, bottom, rotation ]);
+  return glms_mat4_mulv(&rotation, v);*/
+  Vec3 axis = {0.0, 1.0, 0.0};
+  return glms_mat4_mulv3(glms_rotate(glms_mat4_identity(), a, axis), *v, 1.0);
 }
 
 void create_rasterization_pipeline(uint32_t w, uint32_t h,
@@ -239,9 +250,9 @@ void rasterize(RasterizationPipeline *pipeline, const Vec4 clip0,
       },
   };
 
-  Vec3 screen0 = viewport_project(pipeline->canvas, vec3_from_vec4(ndc[0]));
-  Vec3 screen1 = viewport_project(pipeline->canvas, vec3_from_vec4(ndc[1]));
-  Vec3 screen2 = viewport_project(pipeline->canvas, vec3_from_vec4(ndc[2]));
+  Vec3 screen0 = viewport_project(pipeline->canvas, glms_vec3_make(&ndc[0].x));
+  Vec3 screen1 = viewport_project(pipeline->canvas, glms_vec3_make(&ndc[1].x));
+  Vec3 screen2 = viewport_project(pipeline->canvas, glms_vec3_make(&ndc[2].x));
 
   /*ndc[0] = mat4_mul_vec(&pipeline->viewport, &ndc[0]);
   ndc[1] = mat4_mul_vec(&pipeline->viewport, &ndc[1]);
@@ -273,7 +284,7 @@ Vec4 apply_transform(const RasterizationPipeline *pipeline, Vec3 in) {
   res.z = r.z;*/
 
   // res = mat4_mul_vec(&pipeline->view, &res);
-  res = mat4_mul_vec(&pipeline->projection, &res);
+  res = glms_mat4_mulv(pipeline->projection, res);
   return res;
 }
 

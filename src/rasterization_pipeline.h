@@ -9,7 +9,7 @@
 typedef enum {
   PRIMITIVE_TOPOLOGY_LINE,
   PRIMITIVE_TOPOLOGY_TRIANGLE,
-}PrimitiveTopology ;
+} PrimitiveTopology;
 
 typedef struct {
   Mat4 viewport;

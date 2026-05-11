@@ -4,7 +4,16 @@
 #include <math.h>
 #include <stdint.h>
 
-typedef struct {
+#include <cglm/struct.h>
+
+typedef mat4s Mat4;
+typedef mat3s Mat3;
+typedef vec4s Vec4;
+typedef vec3s Vec3;
+typedef ivec4s IVec4;
+typedef ivec3s IVec3;
+
+/*typedef struct {
   int32_t x;
   int32_t y;
   int32_t z;
@@ -15,7 +24,6 @@ typedef struct {
   float y;
   float z;
 } Vec3;
-
 
 static inline float vec3_length(const Vec3 *v) {
   return sqrtf(v->x * v->x + v->y * v->y + v->z * v->z);
@@ -72,7 +80,7 @@ typedef struct {
   float y;
   float z;
   float w;
-} Vec4;
+} Vec4;*/
 
 /*inline Vec4 vec4_add_scalar(const Vec4 *vec, float v) {
   return Vec4{vec->x + v, vec->y + v, vec->z + v, vec->w + v};
@@ -87,13 +95,14 @@ inline Vec4 vec4_sub(const Vec4 *a, const Vec4 *b) {
   return Vec4{a->x - b->x, a->y - b->y, a->z - b->z, a->w + b->w};
 }*/
 
+/*
 typedef struct {
   float data[4][4];
 } Mat4;
 
 static inline void make_mat4(const Vec4 *a, const Vec4 *b, const Vec4 *c,
                              const Vec4 *d, Mat4 *res) {
-  /*res->data[0][0] = a->x;
+  *res->data[0][0] = a->x;
   res->data[0][1] = b->x;
   res->data[0][2] = c->x;
   res->data[0][3] = d->x;
@@ -111,7 +120,7 @@ static inline void make_mat4(const Vec4 *a, const Vec4 *b, const Vec4 *c,
   res->data[3][0] = a->w;
   res->data[3][1] = b->w;
   res->data[3][2] = c->w;
-  res->data[3][3] = d->w;*/
+  res->data[3][3] = d->w;*
 
   res->data[0][0] = a->x;
   res->data[0][1] = a->y;
@@ -133,7 +142,9 @@ static inline void make_mat4(const Vec4 *a, const Vec4 *b, const Vec4 *c,
   res->data[3][2] = d->z;
   res->data[3][3] = d->w;
 }
+*/
 
+/*
 static inline Vec4 mat4_mul_vec(const Mat4 *mat, Vec4 *v) {
   Vec4 res = {};
   res.x = mat->data[0][0] * v->x + mat->data[1][0] * v->y +
@@ -201,10 +212,9 @@ static inline Vec3 mat3_mul_vec(const Mat3 *mat, const Vec3 *v) {
   return res;
 }
 
-
 static inline Vec3 vec3_from_vec4(Vec4 v) {
-    Vec3 res = {v.x,v.y,v.z};
-    return res;
-}
+  Vec3 res = {v.x, v.y, v.z};
+  return res;
+}*/
 
 #endif /* VEC_H */
