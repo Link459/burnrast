@@ -25,9 +25,6 @@
 #define min(a, b) (a < b ? a : b)
 #define max(a, b) (a > b ? a : b)
 
-Image z_buffer;
-bool show_z_buffer = false;
-
 void triangle_scanline(SDL_Surface *canvas, int32_t ax, int32_t ay, int32_t bx,
                        int32_t by, int32_t cx, int32_t cy, const Color *color) {
   // Sort a, b & c such that a is the smallest
@@ -76,7 +73,7 @@ void triangle_scanline(SDL_Surface *canvas, int32_t ax, int32_t ay, int32_t bx,
   }
 }
 
-void triangle_aabb(SDL_Surface *canvas, Vec3 a, Vec3 b, Vec3 c,
+/*void triangle_aabb(SDL_Surface *canvas, Vec3 a, Vec3 b, Vec3 c,
                    const Color *color) {
   float min_x = min(a.x, min(b.x, c.x));
   float min_y = min(a.y, min(b.y, c.y));
@@ -108,16 +105,16 @@ void triangle_aabb(SDL_Surface *canvas, Vec3 a, Vec3 b, Vec3 c,
       }
       image_set(&z_buffer, x, y, &z);
 
-      /*Color new_color = {
+      Color new_color = {
           .r = (alpha * BLUE.r + beta * GREEN.r + gamma * RED.r),
           .g = (alpha * BLUE.g + beta * GREEN.g + gamma * RED.g),
           .b = (alpha * BLUE.b + beta * GREEN.b + gamma * RED.b),
-      };*/
+      };
 
-      /*float k = min(alpha, min(beta, gamma));
+      float k = min(alpha, min(beta, gamma));
       if (k > 0.1f) {
         continue;
-      }*/
+      }
       if (show_z_buffer) {
         Color z_color = {z, z, z};
         set_color(canvas, x, y, &z_color);
@@ -127,12 +124,12 @@ void triangle_aabb(SDL_Surface *canvas, Vec3 a, Vec3 b, Vec3 c,
       }
     }
   }
-}
+}*/
 
 void triangle(SDL_Surface *canvas, Vec3 a, Vec3 b, Vec3 c, const Color *color) {
-  triangle_aabb(canvas, a, b, c, color);
-  // triangle_scanline(canvas, ax, ay, bx, by, cx, cy, color);
-  // triangle_outline(canvas, ax, ay, bx, by, cx, cy, color);
+  // triangle_aabb(canvas, a, b, c, color);
+  //  triangle_scanline(canvas, ax, ay, bx, by, cx, cy, color);
+  //  triangle_outline(canvas, ax, ay, bx, by, cx, cy, color);
 }
 
 void random_lines(SDL_Surface *canvas) {
@@ -197,7 +194,6 @@ int main() {
   RasterizationPipeline pipeline = {};
 
   create_rasterization_pipeline(w, h, &pipeline);
-  z_buffer = image_create(w, h, sizeof(float));
 
   SDL_Time current_time = 0;
   SDL_Time previous_time = 0;
@@ -216,18 +212,24 @@ int main() {
         break;
       case SDL_EVENT_KEY_DOWN:
         if (event.key.key == SDLK_N) {
-          show_z_buffer = !show_z_buffer;
           pipeline.show_z_buffer = !pipeline.show_z_buffer;
         } else if (event.key.key == SDLK_F) {
           static bool f = false;
           f = !f;
-          // SDL_SetWindowFullscreen(window, f);
+          SDL_SetWindowFullscreen(window, f);
         }
         break;
-      case SDL_EVENT_WINDOW_RESIZED:
-        /*create_rasterization_pipeline(event.window.data1, event.window.data2,
-                                      &pipeline);*/
+      case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED: {
+        if (w == event.window.data1 && h == event.window.data2) {
+          break;
+        }
+
+        destroy_rasterization_pipeline(&pipeline);
+        w = event.window.data1;
+        h = event.window.data2;
+        create_rasterization_pipeline(w, h, &pipeline);
         break;
+      }
       default:
         break;
       }
@@ -241,7 +243,6 @@ int main() {
     printf("fps: %f, Frame Time: %f\n", 1.0 / (dt / 1000.0f), dt);
 
     float zero = 0.0f;
-    image_clear(&z_buffer, &zero);
     image_clear(&pipeline.z_buffer, &zero);
 
     SDL_LockSurface(pipeline.canvas);
@@ -263,8 +264,8 @@ int main() {
     frames++;
   }
 
-  free_model(&model);
-  image_free(&z_buffer);
+  destroy_rasterization_pipeline(&pipeline);
+  model_free(&model);
   SDL_Quit();
   return 0;
 }

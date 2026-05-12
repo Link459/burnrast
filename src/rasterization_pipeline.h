@@ -25,6 +25,8 @@ typedef struct RasterizationPipeline {
 
 void create_rasterization_pipeline(uint32_t w, uint32_t h,
                                    RasterizationPipeline *pipeline);
+void destroy_rasterization_pipeline(const RasterizationPipeline *pipeline);
+
 void pipeline_draw(RasterizationPipeline *pipeline, const Model *model);
 
 Mat4 viewport(const int32_t x, const int32_t y, const int32_t w,

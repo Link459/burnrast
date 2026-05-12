@@ -21,6 +21,6 @@ typedef struct {
 } Model;
 
 Model load_model(const char *filepath);
-void free_model(Model *model);
+void model_free(Model *model);
 
 #endif /* MODEL_H */

@@ -109,6 +109,7 @@ void create_rasterization_pipeline(uint32_t w, uint32_t h,
   Vec3 eye = {-1, 0, 2};
   Vec3 center = {0, 0, 0};
   Vec3 up = {0, 1, 0};
+  printf("Creating pipeline: %ux%u\n", w, h);
 
   pipeline->viewport = viewport(w / 16, h / 16, w * 7 / 8, h * 7 / 8);
   pipeline->projection = perspective();
@@ -118,6 +119,11 @@ void create_rasterization_pipeline(uint32_t w, uint32_t h,
   pipeline->canvas = SDL_CreateSurface(w, h, SDL_PIXELFORMAT_RGBA32);
   pipeline->topology = PRIMITIVE_TOPOLOGY_TRIANGLE;
   pipeline->vertex_shader = simple_vertex_shader;
+}
+
+void destroy_rasterization_pipeline(const RasterizationPipeline *pipeline) {
+  SDL_DestroySurface(pipeline->canvas);
+  image_free(&pipeline->z_buffer);
 }
 
 #define min(a, b) (a < b ? a : b)

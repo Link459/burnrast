@@ -14,6 +14,9 @@ debug:
 asan:
 	$(CC) $(SRCS) $(LDFLAGS) -fsanitize=address -o burnrast
 
+ubsan:
+	$(CC) $(SRCS) $(LDFLAGS) -fsanitize=undefined -o burnrast
+
 run: build
 	./burnrast
 

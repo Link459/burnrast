@@ -105,7 +105,7 @@ Model load_model(const char *filepath) {
   return model;
 }
 
-void free_model(Model *model) {
+void model_free(Model *model) {
   free(model->vertices);
   free(model->face_vertices);
 }
