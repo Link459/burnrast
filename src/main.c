@@ -187,8 +187,8 @@ int main() {
   uint32_t w = 640;
   SDL_Window *window = SDL_CreateWindow("burnrast", w, h, 0);
 
-  // Model model = load_model("assets/diablo3_pose.obj");
-  Model model = load_model("assets/african_head.obj");
+   Model model = load_model("assets/diablo3_pose.obj");
+  //Model model = load_model("assets/african_head.obj");
   // Model model = load_model("assets/boggie/body.obj");
 
   RasterizationPipeline pipeline = {};
@@ -249,12 +249,8 @@ int main() {
 
     SDL_ClearSurface(pipeline.canvas, 0.0, 0.0, 0.0, 1.0);
 
-    // draw_model(pipeline.canvas, &model);
     pipeline_draw(&pipeline, &model);
 
-    draw_test_triangle(pipeline.canvas);
-    // draw_test_triangles(canvas);
-    // random_lines(canvas);
     SDL_UnlockSurface(pipeline.canvas);
 
     SDL_Surface *window_surface = SDL_GetWindowSurface(window);

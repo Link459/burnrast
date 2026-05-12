@@ -14,7 +14,7 @@ Mat4 viewport(const int32_t x, const int32_t y, const int32_t w,
   return viewport;*/
   Mat4 viewport = glms_mat4_identity();
   viewport.m00 = w / 2.0;
-  viewport.m03 = x + w / 2.0;
+  viewport.m13 = x + w / 2.0;
 
   viewport.m11 = h / 2.0;
   viewport.m13 = x + h / 2.0;
@@ -100,7 +100,7 @@ Vec4 simple_vertex_shader(const struct RasterizationPipeline *pipeline,
   res.y = r.y;
   res.z = r.z;*/
 
-  // res = mat4_mul_vec(&pipeline->view, &res);
+  // res = glms_mat4_mulv(pipeline->view, res);
   return glms_mat4_mulv(pipeline->projection, res);
 }
 
@@ -176,7 +176,20 @@ void pipeline_triangle_aabb(RasterizationPipeline *pipeline, Vec3 a, Vec3 b,
       }
       image_set(&pipeline->z_buffer, x, y, &z);
 
-      Vec3 interpolated_color = {
+#define BURNRAST_INTERPOLATE2(a, b, c)                                         \
+  alpha *a.x + beta *b.x + gamma *c.x, alpha *a.y + beta *b.y + gamma *c.y,
+
+#define BURNRAST_INTERPOLATE3(a, b, c)                                         \
+  alpha *a.x + beta *b.x + gamma *c.x, alpha *a.y + beta *b.y + gamma *c.y,    \
+      alpha *a.z + beta *b.z + gamma *c.z,
+
+      Vec3 interpolated_color = {BURNRAST_INTERPOLATE3(
+          vertex_a->color, vertex_b->color, vertex_c->color)};
+
+      Vec2 interpolated_uv = {
+          BURNRAST_INTERPOLATE2(vertex_a->uvw, vertex_b->uvw, vertex_c->uvw)};
+
+      /*Vec3 interpolated_color = {
           .r = (alpha * vertex_a->color.r + beta * vertex_b->color.r +
                 gamma * vertex_c->color.r),
           .g = (alpha * vertex_a->color.g + beta * vertex_b->color.g +
@@ -185,15 +198,16 @@ void pipeline_triangle_aabb(RasterizationPipeline *pipeline, Vec3 a, Vec3 b,
                 gamma * vertex_c->color.b),
       };
 
-      Vec2 new_uv = {
+      Vec2 interpolated_uv = {
           .x = (alpha * vertex_a->uvw.x + beta * vertex_b->uvw.x +
                 gamma * vertex_c->uvw.x),
           .y = (alpha * vertex_a->uvw.y + beta * vertex_b->uvw.y +
                 gamma * vertex_c->uvw.y),
-      };
+      };*/
 
       InterpolatedVertex interpolated = {};
       interpolated.color = interpolated_color;
+      interpolated.uv = interpolated_uv;
 
       IVec2 frag_coord = {x, y};
       /*float k = min(alpha, min(beta, gamma));
@@ -287,17 +301,17 @@ void rasterize(RasterizationPipeline *pipeline, const Vec4 clip0,
       },
   };
 
-  Vec3 screen0 = viewport_project(pipeline->canvas, glms_vec3_make(&ndc[0].x));
-  Vec3 screen1 = viewport_project(pipeline->canvas, glms_vec3_make(&ndc[1].x));
-  Vec3 screen2 = viewport_project(pipeline->canvas, glms_vec3_make(&ndc[2].x));
+   Vec3 screen0 = viewport_project(pipeline->canvas,
+   glms_vec3_make(&ndc[0].x)); Vec3 screen1 =
+   viewport_project(pipeline->canvas, glms_vec3_make(&ndc[1].x)); Vec3 screen2
+  = viewport_project(pipeline->canvas, glms_vec3_make(&ndc[2].x));
 
-  /*ndc[0] = mat4_mul_vec(&pipeline->viewport, &ndc[0]);
-  ndc[1] = mat4_mul_vec(&pipeline->viewport, &ndc[1]);
-  ndc[2] = mat4_mul_vec(&pipeline->viewport, &ndc[2]);
-
-  Vec3 screen0 = {ndc[0].x, ndc[0].y, ndc[0].z};
-  Vec3 screen1 = {ndc[1].x, ndc[1].y, ndc[1].z};
-  Vec3 screen2 = {ndc[2].x, ndc[2].y, ndc[2].z};*/
+  /*Vec3 screen0 =
+      glms_mat4_mulv3(pipeline->viewport, glms_vec3_make(&ndc[0].x), 1.0f);
+  Vec3 screen1 =
+      glms_mat4_mulv3(pipeline->viewport, glms_vec3_make(&ndc[1].x), 1.0f);
+  Vec3 screen2 =
+      glms_mat4_mulv3(pipeline->viewport, glms_vec3_make(&ndc[2].x), 1.0f);*/
 
   if (pipeline->topology == PRIMITIVE_TOPOLOGY_TRIANGLE) {
     pipeline_triangle_aabb(pipeline, screen0, screen1, screen2, vertex_a,
