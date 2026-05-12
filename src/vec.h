@@ -10,8 +10,10 @@ typedef mat4s Mat4;
 typedef mat3s Mat3;
 typedef vec4s Vec4;
 typedef vec3s Vec3;
+typedef vec2s Vec2;
 typedef ivec4s IVec4;
 typedef ivec3s IVec3;
+typedef ivec2s IVec2;
 
 /*typedef struct {
   int32_t x;

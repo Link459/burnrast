@@ -26,7 +26,7 @@
 #define max(a, b) (a > b ? a : b)
 
 void triangle_scanline(SDL_Surface *canvas, int32_t ax, int32_t ay, int32_t bx,
-                       int32_t by, int32_t cx, int32_t cy, const Color *color) {
+                       int32_t by, int32_t cx, int32_t cy, const Vec3 *color) {
   // Sort a, b & c such that a is the smallest
   if (ay > by) {
     BURNRAST_SWAP(ax, bx);
@@ -126,7 +126,7 @@ void triangle_scanline(SDL_Surface *canvas, int32_t ax, int32_t ay, int32_t bx,
   }
 }*/
 
-void triangle(SDL_Surface *canvas, Vec3 a, Vec3 b, Vec3 c, const Color *color) {
+void triangle(SDL_Surface *canvas, Vec3 a, Vec3 b, Vec3 c, const Vec3 *color) {
   // triangle_aabb(canvas, a, b, c, color);
   //  triangle_scanline(canvas, ax, ay, bx, by, cx, cy, color);
   //  triangle_outline(canvas, ax, ay, bx, by, cx, cy, color);
@@ -138,7 +138,7 @@ void random_lines(SDL_Surface *canvas) {
     int32_t bx = rand() % canvas->w;
     int32_t ay = rand() % canvas->h;
     int32_t by = rand() % canvas->h;
-    Color color = {
+    Vec3 color = {
         .r = rand() % 255,
         .g = rand() % 255,
         .b = rand() % 255,

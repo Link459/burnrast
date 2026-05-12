@@ -21,7 +21,12 @@ typedef struct RasterizationPipeline {
   Image z_buffer;
   PrimitiveTopology topology;
   VertexShader vertex_shader;
+  FragmentShader fragment_shader;
 } RasterizationPipeline;
+
+typedef struct InterpolatedVertex {
+  Vec3 color;
+} InterpolatedVertex;
 
 void create_rasterization_pipeline(uint32_t w, uint32_t h,
                                    RasterizationPipeline *pipeline);

@@ -104,6 +104,10 @@ Vec4 simple_vertex_shader(const struct RasterizationPipeline *pipeline,
   return glms_mat4_mulv(pipeline->projection, res);
 }
 
+Vec3 simple_fragment_shader(IVec2 frag_coord, const InterpolatedVertex *v) {
+  return v->color;
+}
+
 void create_rasterization_pipeline(uint32_t w, uint32_t h,
                                    RasterizationPipeline *pipeline) {
   Vec3 eye = {-1, 0, 2};
@@ -119,6 +123,7 @@ void create_rasterization_pipeline(uint32_t w, uint32_t h,
   pipeline->canvas = SDL_CreateSurface(w, h, SDL_PIXELFORMAT_RGBA32);
   pipeline->topology = PRIMITIVE_TOPOLOGY_TRIANGLE;
   pipeline->vertex_shader = simple_vertex_shader;
+  pipeline->fragment_shader = simple_fragment_shader;
 }
 
 void destroy_rasterization_pipeline(const RasterizationPipeline *pipeline) {
@@ -171,7 +176,7 @@ void pipeline_triangle_aabb(RasterizationPipeline *pipeline, Vec3 a, Vec3 b,
       }
       image_set(&pipeline->z_buffer, x, y, &z);
 
-      Color new_color = {
+      Vec3 interpolated_color = {
           .r = (alpha * vertex_a->color.r + beta * vertex_b->color.r +
                 gamma * vertex_c->color.r),
           .g = (alpha * vertex_a->color.g + beta * vertex_b->color.g +
@@ -180,21 +185,28 @@ void pipeline_triangle_aabb(RasterizationPipeline *pipeline, Vec3 a, Vec3 b,
                 gamma * vertex_c->color.b),
       };
 
-      Color new_uv = {.r = (alpha * vertex_a->uvw.x + beta * vertex_b->uvw.x +
-                            gamma * vertex_c->uvw.x),
-                      .g = (alpha * vertex_a->uvw.y + beta * vertex_b->uvw.y +
-                            gamma * vertex_c->uvw.y),
-                      .b = 0.0f};
+      Vec2 new_uv = {
+          .x = (alpha * vertex_a->uvw.x + beta * vertex_b->uvw.x +
+                gamma * vertex_c->uvw.x),
+          .y = (alpha * vertex_a->uvw.y + beta * vertex_b->uvw.y +
+                gamma * vertex_c->uvw.y),
+      };
 
+      InterpolatedVertex interpolated = {};
+      interpolated.color = interpolated_color;
+
+      IVec2 frag_coord = {x, y};
       /*float k = min(alpha, min(beta, gamma));
       if (k > 0.1f) {
         continue;
       }*/
       if (pipeline->show_z_buffer) {
-        Color z_color = {z, z, z};
+        Vec3 z_color = {z, z, z};
         set_color(pipeline->canvas, x, y, &z_color);
       } else {
-        set_color(pipeline->canvas, x, y, &new_color);
+        // set_color(pipeline->canvas, x, y, &interpolated.color);
+        Vec3 frag_color = pipeline->fragment_shader(frag_coord, &interpolated);
+        set_color(pipeline->canvas, x, y, &frag_color);
       }
     }
   }
@@ -206,7 +218,7 @@ void pipeline_triangle_aabb(RasterizationPipeline *pipeline, Vec3 a, Vec3 b,
   b = tmp_##a
 
 void line(SDL_Surface *canvas, float ax, float ay, float bx, float by,
-          const Color *color) {
+          const Vec3 *color) {
   /*for (float t = 0.0; t < 1.0; t += 0.02) {
     int32_t new_x = round(ax + (bx - ax) * t);
     int32_t new_y = round(ay + (by - ay) * t);
@@ -245,7 +257,7 @@ void line(SDL_Surface *canvas, float ax, float ay, float bx, float by,
 }
 
 void triangle_outline(RasterizationPipeline *pipeline, Vec3 a, Vec3 b, Vec3 c,
-                      const Color *color) {
+                      const Vec3 *color) {
   line(pipeline->canvas, a.x, a.y, b.x, b.y, color);
   line(pipeline->canvas, b.x, b.y, c.x, c.y, color);
   line(pipeline->canvas, c.x, c.y, a.x, a.y, color);

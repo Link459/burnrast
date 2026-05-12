@@ -42,7 +42,7 @@ Model load_model(const char *filepath) {
       }
 
       vertices[current_vertex_pos].position = position;
-      Color color = {};
+      Vec3 color = {};
       color.r = rand() % 255;
       color.g = rand() % 255;
       color.b = rand() % 255;
