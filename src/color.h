@@ -32,6 +32,14 @@ const static Vec3 YELLOW = {
     .b = 255,
 };
 
+static inline Vec3 random_color() {
+Vec3 color = {};
+      color.r = rand() % 255;
+      color.g = rand() % 255;
+      color.b = rand() % 255;
+    return color;
+}
+
 static inline void set_color(SDL_Surface *canvas, uint32_t x, uint32_t y,
                              const Vec3 *color) {
   if (x > canvas->w || y > canvas->h) {

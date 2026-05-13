@@ -74,8 +74,8 @@ Vec3 persp(Vec3 v) {
   return res;
 }
 
-Vec3 rot(const Vec3 *v) {
-  float a = -M_PI / 6;
+Vec3 rot(const Vec3 v) {
+  float a = M_PI / 6;
   /*Mat3 rotation;
   Vec3 top = {cosf(a), 0, sinf(a)};
   Vec3 mid = {0, 1, 0};
@@ -83,8 +83,11 @@ Vec3 rot(const Vec3 *v) {
   glms_mat3_make([ top, mid, bottom, rotation ]);
   return glms_mat4_mulv(&rotation, v);*/
   Vec3 axis = {0.0, 1.0, 0.0};
-  return glms_mat4_mulv3(glms_rotate(glms_mat4_identity(), a, axis), *v, 1.0);
+  return glms_mat4_mulv3(glms_rotate(glms_mat4_identity(), a, axis), v, 1.0);
 }
+
+uint32_t vert = 0;
+Vec3 tris[3];
 
 Vec4 simple_vertex_shader(const struct RasterizationPipeline *pipeline,
                           struct Vertex *vertex) {
@@ -94,18 +97,49 @@ Vec4 simple_vertex_shader(const struct RasterizationPipeline *pipeline,
       vertex->position.z,
       1.0f,
   };
-
   /*Vec3 r = persp(in);
   res.x = r.x;
   res.y = r.y;
   res.z = r.z;*/
-
+  Vec3 tmp = glms_vec3_make(&res.x);
+  Vec3 rotated = rot(tmp);
+  Vec4 other = {rotated.x, rotated.y, rotated.z, 1.0f};
   // res = glms_mat4_mulv(pipeline->view, res);
-  return glms_mat4_mulv(pipeline->projection, res);
+
+  res = glms_mat4_mulv(pipeline->projection, other);
+
+  tris[vert] = glms_vec3_make(&res.x);
+  vert = (vert + 1) % 3;
+
+  return res;
 }
 
 Vec3 simple_fragment_shader(IVec2 frag_coord, const InterpolatedVertex *v) {
-  return v->color;
+
+  Vec3 ab = glms_vec3_sub(tris[1], tris[0]);
+  Vec3 ac = glms_vec3_sub(tris[2], tris[1]);
+  Vec3 normal = glms_normalize(glms_cross(ab, ac));
+  /*Vec3 res = {};
+  res.x = v->uv.x * 255.0f;
+  res.y = v->uv.y * 255.0f;
+  res.z = 0.0f;*/
+
+  float ambient = 0.4f;
+  Vec3 l = {1.0f, 1.0f, 1.0f};
+  float NoL = glms_dot(normal, l);
+  float diffuse = fmax(0.0, NoL);
+
+  Vec3 r = glms_vec3_sub(glms_vec3_scale(normal, 2.0f * NoL), l);
+  float e = 35.0f;
+  float specular = pow(fmax(r.z, 0.0f), e);
+
+  Vec3 res = glms_vec3_scale(
+      v->color, fmin(1.0f, ambient + 0.4 * diffuse + 0.9 * specular));
+  return res;
+  // return glms_vec3_scale(res, 255.0f);
+  //  return res;
+  //  return glms_vec3_scale(v->normal, 255.0f);
+  //   return v->color;
 }
 
 void create_rasterization_pipeline(uint32_t w, uint32_t h,
@@ -188,6 +222,8 @@ void pipeline_triangle_aabb(RasterizationPipeline *pipeline, Vec3 a, Vec3 b,
 
       Vec2 interpolated_uv = {
           BURNRAST_INTERPOLATE2(vertex_a->uvw, vertex_b->uvw, vertex_c->uvw)};
+      Vec3 interpolated_normal = {BURNRAST_INTERPOLATE3(
+          vertex_a->normal, vertex_b->normal, vertex_c->normal)};
 
       /*Vec3 interpolated_color = {
           .r = (alpha * vertex_a->color.r + beta * vertex_b->color.r +
@@ -208,6 +244,7 @@ void pipeline_triangle_aabb(RasterizationPipeline *pipeline, Vec3 a, Vec3 b,
       InterpolatedVertex interpolated = {};
       interpolated.color = interpolated_color;
       interpolated.uv = interpolated_uv;
+      interpolated.normal = interpolated_normal;
 
       IVec2 frag_coord = {x, y};
       /*float k = min(alpha, min(beta, gamma));
@@ -301,10 +338,9 @@ void rasterize(RasterizationPipeline *pipeline, const Vec4 clip0,
       },
   };
 
-   Vec3 screen0 = viewport_project(pipeline->canvas,
-   glms_vec3_make(&ndc[0].x)); Vec3 screen1 =
-   viewport_project(pipeline->canvas, glms_vec3_make(&ndc[1].x)); Vec3 screen2
-  = viewport_project(pipeline->canvas, glms_vec3_make(&ndc[2].x));
+  Vec3 screen0 = viewport_project(pipeline->canvas, glms_vec3_make(&ndc[0].x));
+  Vec3 screen1 = viewport_project(pipeline->canvas, glms_vec3_make(&ndc[1].x));
+  Vec3 screen2 = viewport_project(pipeline->canvas, glms_vec3_make(&ndc[2].x));
 
   /*Vec3 screen0 =
       glms_mat4_mulv3(pipeline->viewport, glms_vec3_make(&ndc[0].x), 1.0f);
@@ -341,9 +377,13 @@ Vec4 apply_transform(const RasterizationPipeline *pipeline, Vec3 in) {
 
 void pipeline_draw(RasterizationPipeline *pipeline, const Model *model) {
   for (uint32_t i = 0; i < model->face_count; i++) {
-    Vertex *vertex_a = &model->vertices[model->face_vertices[i * 3 + 0]];
-    Vertex *vertex_b = &model->vertices[model->face_vertices[i * 3 + 1]];
-    Vertex *vertex_c = &model->vertices[model->face_vertices[i * 3 + 2]];
+    // Vertex *vertex_a = &model->vertices[model->face_vertices[i * 3 + 0]];
+    // Vertex *vertex_b = &model->vertices[model->face_vertices[i * 3 + 1]];
+    // Vertex *vertex_c = &model->vertices[model->face_vertices[i * 3 + 2]];
+
+    Vertex *vertex_a = &model->vertices[i * 3 + 0];
+    Vertex *vertex_b = &model->vertices[i * 3 + 1];
+    Vertex *vertex_c = &model->vertices[i * 3 + 2];
 
     /*Vec4 clip_a = apply_transform(pipeline, vertex_a->position);
     Vec4 clip_b = apply_transform(pipeline, vertex_b->position);

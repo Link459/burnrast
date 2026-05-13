@@ -171,9 +171,9 @@ void draw_model(SDL_Surface *canvas, Model *model) {
     Vertex *b = &model->vertices[model->face_vertices[i * 3 + 1]];
     Vertex *c = &model->vertices[model->face_vertices[i * 3 + 2]];
 
-    Vec3 a_proj = viewport_project(canvas, persp(rot(&a->position)));
-    Vec3 b_proj = viewport_project(canvas, persp(rot(&b->position)));
-    Vec3 c_proj = viewport_project(canvas, persp(rot(&c->position)));
+    Vec3 a_proj = viewport_project(canvas, persp(rot(a->position)));
+    Vec3 b_proj = viewport_project(canvas, persp(rot(b->position)));
+    Vec3 c_proj = viewport_project(canvas, persp(rot(c->position)));
 
     triangle(canvas, a_proj, b_proj, c_proj, &a->color);
   }
@@ -187,9 +187,9 @@ int main() {
   uint32_t w = 640;
   SDL_Window *window = SDL_CreateWindow("burnrast", w, h, 0);
 
-   Model model = load_model("assets/diablo3_pose.obj");
-  //Model model = load_model("assets/african_head.obj");
-  // Model model = load_model("assets/boggie/body.obj");
+  Model model = load_model("assets/diablo3_pose.obj");
+  // Model model = load_model("assets/african_head.obj");
+  //  Model model = load_model("assets/boggie/body.obj");
 
   RasterizationPipeline pipeline = {};
 

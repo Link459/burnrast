@@ -26,7 +26,8 @@ typedef struct RasterizationPipeline {
 
 typedef struct InterpolatedVertex {
   Vec3 color;
-    Vec2 uv;
+  Vec2 uv;
+  Vec3 normal;
 } InterpolatedVertex;
 
 void create_rasterization_pipeline(uint32_t w, uint32_t h,
@@ -46,6 +47,6 @@ float signed_triangle_area(int32_t ax, int32_t ay, int32_t bx, int32_t by,
 Vec3 viewport_project(const SDL_Surface *surface, Vec3 x);
 
 Vec3 persp(Vec3 v);
-Vec3 rot(const Vec3 *v);
+Vec3 rot(const Vec3 v);
 
 #endif /* RASTERIZATION_PIPELINE_H */

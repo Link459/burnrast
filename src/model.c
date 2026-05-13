@@ -22,10 +22,7 @@ bool is_normal(const char *current) {
     exit(-1);                                                                  \
   } while (1)
 
-// TODO: figure out loading normals/uv coords
 Model load_model(const char *filepath) {
-  uint32_t vertex_count = 0;
-  uint32_t face_count = 0;
 
   FILE *file = fopen(filepath, "r");
 
@@ -33,29 +30,36 @@ Model load_model(const char *filepath) {
   size_t len = 0;
   char *current_line = NULL;
 
-  uint32_t position_count;
-  uint32_t normal_count;
-  uint32_t uv_count;
+  uint32_t position_count = 0;
+  uint32_t normal_count = 0;
+  uint32_t uv_count = 0;
 
+  uint32_t face_count = 0;
   while ((read = getline(&current_line, &len, file) != -1)) {
-    if (current_line[0] == 'v' && current_line[1] == ' ') {
-      vertex_count++;
-    } else if (current_line[0] == 'f') {
+    if (is_position(current_line)) {
+      position_count++;
+    } else if (is_uv(current_line)) {
+      uv_count++;
+    } else if (is_normal(current_line)) {
+      normal_count++;
+    } else if (current_line[0] == 'f' && current_line[1] == ' ') {
       face_count++;
     }
   }
 
+  uint32_t vertex_count =
+      face_count * 3; // fmax(uv_count, fmax(position_count, normal_count));
   Vertex *vertices = malloc(vertex_count * sizeof(Vertex));
 
-  Vec3 *positions = malloc(vertex_count * sizeof(Vec3));
-  Vec3 *uv = malloc(vertex_count * sizeof(Vec3));
-  Vec3 *normals = malloc(vertex_count * sizeof(Vec3));
+  Vec3 *positions = malloc(position_count * sizeof(Vec3));
+  Vec3 *uvs = malloc(uv_count * sizeof(Vec3));
+  Vec3 *normals = malloc(normal_count * sizeof(Vec3));
 
   int *face_vertices = malloc(face_count * 3 * sizeof(int));
   uint32_t current_vertex_pos = 0;
   uint32_t current_vertex_uv = 0;
   uint32_t current_vertex_normal = 0;
-  uint32_t current_face = 0;
+  uint32_t current_vertex = 0;
 
   fseek(file, 0, SEEK_SET);
   while ((read = getline(&current_line, &len, file) != -1)) {
@@ -67,12 +71,6 @@ Model load_model(const char *filepath) {
         BURNRAST_MODEL_ERROR();
       }
 
-      vertices[current_vertex_pos].position = position;
-      Vec3 color = {};
-      color.r = rand() % 255;
-      color.g = rand() % 255;
-      color.b = rand() % 255;
-      vertices[current_vertex_pos].color = color;
       positions[current_vertex_pos] = position;
       current_vertex_pos++;
     } else if (is_uv(current_line)) {
@@ -83,7 +81,7 @@ Model load_model(const char *filepath) {
       }
 
       // vertices[current_vertex_uv].uvw = uvw;
-      uv[current_vertex_uv] = uvw;
+      uvs[current_vertex_uv] = uvw;
       current_vertex_uv++;
     } else if (is_normal(current_line)) {
       char *new_line = current_line + 3;
@@ -110,18 +108,40 @@ Model load_model(const char *filepath) {
 
       // -1 as .obj indices start at 1
       // * 3 as there are 3 floats per vertex/face index
-      face_vertices[current_face + 0] = (pos[0] - 1);
-      face_vertices[current_face + 1] = (pos[1] - 1);
-      face_vertices[current_face + 2] = (pos[2] - 1);
-      current_face += 3;
+      vertices[current_vertex + 0].position = positions[pos[0] - 1];
+      vertices[current_vertex + 1].position = positions[pos[1] - 1];
+      vertices[current_vertex + 2].position = positions[pos[2] - 1];
+
+      vertices[current_vertex + 0].uvw = uvs[uv[0] - 1];
+      vertices[current_vertex + 1].uvw = uvs[uv[1] - 1];
+      vertices[current_vertex + 2].uvw = uvs[uv[2] - 1];
+
+      vertices[current_vertex + 0].normal = normals[normal[0] - 1];
+      vertices[current_vertex + 1].normal = normals[normal[1] - 1];
+      vertices[current_vertex + 2].normal = normals[normal[2] - 1];
+
+      Vec3 color = {152.0f, 152.0f, 152.0f};
+      vertices[current_vertex + 0].color = color;
+      vertices[current_vertex + 1].color = color;
+      vertices[current_vertex + 2].color = color;
+
+      face_vertices[current_vertex + 0] = current_vertex + 0;
+      face_vertices[current_vertex + 1] = current_vertex + 1;
+      face_vertices[current_vertex + 2] = current_vertex + 2;
+      current_vertex += 3;
     }
   }
 
-  assert(current_vertex_pos == vertex_count);
+  assert(current_vertex == vertex_count);
+
+  // assert(current_vertex_pos == vertex_count);
   // assert(current_vertex_uv == vertex_count);
   // assert(current_vertex_normal == vertex_count);
 
   fclose(file);
+  free(positions);
+  free(normals);
+  free(uvs);
 
   Model model = {
       .vertices = vertices,
