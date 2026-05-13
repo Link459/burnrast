@@ -33,23 +33,24 @@ const static Vec3 YELLOW = {
 };
 
 static inline Vec3 random_color() {
-Vec3 color = {};
-      color.r = rand() % 255;
-      color.g = rand() % 255;
-      color.b = rand() % 255;
-    return color;
+  Vec3 color = {};
+  color.r = rand() % 255;
+  color.g = rand() % 255;
+  color.b = rand() % 255;
+  return color;
 }
 
+// TODO: oob access in this function
 static inline void set_color(SDL_Surface *canvas, uint32_t x, uint32_t y,
                              const Vec3 *color) {
-  if (x > canvas->w || y > canvas->h) {
+  if (x >= canvas->w || y >= canvas->h) {
     return;
   }
-  uint32_t *buffer = canvas->pixels;
+  uint32_t *buffer = (uint32_t *)canvas->pixels;
   uint32_t offset = (canvas->h - y) * canvas->w + x;
   uint32_t mapped_color =
       SDL_MapSurfaceRGB(canvas, color->r, color->g, color->b);
-  buffer[offset] = mapped_color;
+  memcpy((buffer + offset), &mapped_color, sizeof(uint32_t));
 }
 
 static inline void set_color_rgba(SDL_Surface *canvas, uint32_t x, uint32_t y,
@@ -58,7 +59,7 @@ static inline void set_color_rgba(SDL_Surface *canvas, uint32_t x, uint32_t y,
     return;
   }
 
-  uint32_t *buffer = canvas->pixels;
+  uint32_t *buffer = (uint32_t *)canvas->pixels;
   uint32_t offset = (canvas->h - y) * canvas->w + x;
   uint32_t mapped_color =
       SDL_MapSurfaceRGBA(canvas, color->r, color->g, color->b, color->a);

@@ -12,11 +12,15 @@ typedef enum {
   PRIMITIVE_TOPOLOGY_TRIANGLE,
 } PrimitiveTopology;
 
+typedef struct {
+  PrimitiveTopology topology;
+  VertexShader vertex_shader;
+  FragmentShader fragment_shader;
+} RasterizationPipelineCreateInfo;
+
 typedef struct RasterizationPipeline {
   Mat4 viewport;
-  Mat4 projection;
-  Mat4 view;
-  SDL_Surface *canvas;
+  SDL_Surface *framebuffer;
   bool show_z_buffer;
   Image z_buffer;
   PrimitiveTopology topology;
@@ -30,23 +34,16 @@ typedef struct InterpolatedVertex {
   Vec3 normal;
 } InterpolatedVertex;
 
-void create_rasterization_pipeline(uint32_t w, uint32_t h,
-                                   RasterizationPipeline *pipeline);
+void create_rasterization_pipeline(
+    uint32_t w, uint32_t h, const RasterizationPipelineCreateInfo *create_info,
+    RasterizationPipeline *pipeline);
 void destroy_rasterization_pipeline(const RasterizationPipeline *pipeline);
 
 void pipeline_draw(RasterizationPipeline *pipeline, const Model *model);
-
-Mat4 viewport(const int32_t x, const int32_t y, const int32_t w,
-              const int32_t h);
-Mat4 perspective();
-Mat4 look_at(const Vec3 *eye, const Vec3 *center, const Vec3 *up);
 
 float signed_triangle_area(int32_t ax, int32_t ay, int32_t bx, int32_t by,
                            int32_t cx, int32_t cy);
 
 Vec3 viewport_project(const SDL_Surface *surface, Vec3 x);
-
-Vec3 persp(Vec3 v);
-Vec3 rot(const Vec3 v);
 
 #endif /* RASTERIZATION_PIPELINE_H */

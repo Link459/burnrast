@@ -4,9 +4,7 @@
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 
-#include "color.h"
 #include "image.h"
 #include "model.h"
 #include "rasterization_pipeline.h"
@@ -25,162 +23,116 @@
 #define min(a, b) (a < b ? a : b)
 #define max(a, b) (a > b ? a : b)
 
-void triangle_scanline(SDL_Surface *canvas, int32_t ax, int32_t ay, int32_t bx,
-                       int32_t by, int32_t cx, int32_t cy, const Vec3 *color) {
-  // Sort a, b & c such that a is the smallest
-  if (ay > by) {
-    BURNRAST_SWAP(ax, bx);
-    BURNRAST_SWAP(ay, by);
-  }
-  if (ay > cy) {
-    BURNRAST_SWAP(ax, cx);
-    BURNRAST_SWAP(ay, cy);
-  }
-  if (by > cy) {
-    BURNRAST_SWAP(cx, bx);
-    BURNRAST_SWAP(cy, by);
-  }
+Vec3 persp(Vec3 v) {
+  float f = 3.0f;
+  float inv = 1.0 / (1.0 - v.z / f);
 
-  int32_t total_height = cy - ay;
-
-  // Rasterizes up to the boundary introduced by the midpoint  b
-  if (ay != cy) {
-    int32_t segment_height = by - ay;
-    // Go over each segment
-    for (int32_t y = ay; y <= by; y++) {
-      // Evaluates x point32_t along the triangle boundary
-      int32_t x1 = ax + ((cx - ax) * (y - ay)) / total_height;
-      int32_t x2 = ax + ((bx - ax) * (y - ay)) / segment_height;
-
-      // Draw a line from the leftmost x point32_t to the rightmost x point
-      for (int32_t x = min(x1, x2); x < max(x1, x2); x++) {
-        set_color(canvas, x, y, color);
-      }
-    }
-  }
-
-  // Do the same thing but from b to c
-  if (by != cy) {
-    int32_t segment_height = cy - by;
-    for (int32_t y = by; y <= cy; y++) {
-      int32_t x1 = ax + ((cx - ax) * (y - ay)) / total_height;
-      int32_t x2 = bx + ((cx - bx) * (y - by)) / segment_height;
-
-      for (int32_t x = min(x1, x2); x < max(x1, x2); x++) {
-        set_color(canvas, x, y, color);
-      }
-    }
-  }
+  Vec3 res = {};
+  res.x = v.x * inv;
+  res.y = v.y * inv;
+  res.z = v.z * inv;
+  return res;
 }
 
-/*void triangle_aabb(SDL_Surface *canvas, Vec3 a, Vec3 b, Vec3 c,
-                   const Color *color) {
-  float min_x = min(a.x, min(b.x, c.x));
-  float min_y = min(a.y, min(b.y, c.y));
-  float max_x = max(a.x, max(b.x, c.x));
-  float max_y = max(a.y, max(b.y, c.y));
-
-  float total_area = signed_triangle_area(a.x, a.y, b.x, b.y, c.x, c.y);
-
-  // Backface culling
-  if (total_area < 0.0f) {
-    return;
-  }
-
-  for (int32_t x = min_x; x < max_x; x++) {
-    for (int32_t y = min_y; y < max_y; y++) {
-      float alpha = signed_triangle_area(x, y, b.x, b.y, c.x, c.y) / total_area;
-      float beta = signed_triangle_area(x, y, c.x, c.y, a.x, a.y) / total_area;
-      float gamma = signed_triangle_area(x, y, a.x, a.y, b.x, b.y) / total_area;
-      if (alpha < 0 || beta < 0 || gamma < 0) {
-        continue;
-      }
-
-      float z = (alpha * a.z + beta * b.z + gamma * c.z);
-
-      float cmp_z;
-      image_get(&z_buffer, x, y, &cmp_z);
-      if (cmp_z >= z) {
-        continue;
-      }
-      image_set(&z_buffer, x, y, &z);
-
-      Color new_color = {
-          .r = (alpha * BLUE.r + beta * GREEN.r + gamma * RED.r),
-          .g = (alpha * BLUE.g + beta * GREEN.g + gamma * RED.g),
-          .b = (alpha * BLUE.b + beta * GREEN.b + gamma * RED.b),
-      };
-
-      float k = min(alpha, min(beta, gamma));
-      if (k > 0.1f) {
-        continue;
-      }
-      if (show_z_buffer) {
-        Color z_color = {z, z, z};
-        set_color(canvas, x, y, &z_color);
-      } else {
-
-        set_color(canvas, x, y, color);
-      }
-    }
-  }
-}*/
-
-void triangle(SDL_Surface *canvas, Vec3 a, Vec3 b, Vec3 c, const Vec3 *color) {
-  // triangle_aabb(canvas, a, b, c, color);
-  //  triangle_scanline(canvas, ax, ay, bx, by, cx, cy, color);
-  //  triangle_outline(canvas, ax, ay, bx, by, cx, cy, color);
+Vec3 rot(const Vec3 v) {
+  float a = M_PI / 6;
+  /*Mat3 rotation;
+  Vec3 top = {cosf(a), 0, sinf(a)};
+  Vec3 mid = {0, 1, 0};
+  Vec3 bottom = {-sinf(a), 0, cosf(a)};
+  glms_mat3_make([ top, mid, bottom, rotation ]);
+  return glms_mat4_mulv(&rotation, v);*/
+  Vec3 axis = {0.0, 1.0, 0.0};
+  return glms_mat4_mulv3(glms_rotate(glms_mat4_identity(), a, axis), v, 1.0);
 }
 
-void random_lines(SDL_Surface *canvas) {
-  for (uint32_t i = 0; i < (1 << 20); i++) {
-    int32_t ax = rand() % canvas->w;
-    int32_t bx = rand() % canvas->w;
-    int32_t ay = rand() % canvas->h;
-    int32_t by = rand() % canvas->h;
-    Vec3 color = {
-        .r = rand() % 255,
-        .g = rand() % 255,
-        .b = rand() % 255,
-    };
-    // line(canvas, ax, ay, bx, by, &color);
-  }
+Mat4 perspective() {
+  float f = 3.0f;
+  Mat4 res = glms_mat4_identity();
+  // res.data[2][3] = -1.0 / f;
+  res.m23 = -1.0 / f;
+
+  /*Vec4 top = {1.0f, 0.0f, 0.0f, 0.0f};
+  Vec4 mid_top = {0.0f, 1.0f, 0.0, 0.0f};
+  Vec4 mid_bottom = {0.0f, 0.0f, 1.0f, 0.0f};
+  Vec4 bottom = {0.0f, 0.0f, -1.0f / f, 1.0f};
+  make_mat4(&top, &mid_top, &mid_bottom, &bottom, &res);*/
+  return res;
 }
 
-void draw_test_triangle(SDL_Surface *canvas) {
-  Vec3 a = {.x = 7, .y = 4, .z = 13};
-  Vec3 b = {.x = 55, .y = 39, .z = 128};
-  Vec3 c = {.x = 23, .y = 59, .z = 255};
-  /*line(canvas, ax, ay, bx, by, &BLUE);
-  line(canvas, cx, cy, bx, by, &GREEN);
-  line(canvas, cx, cy, ax, ay, &YELLOW);
-  line(canvas, ax, ay, cx, cy, &RED);*/
+Mat4 look_at(const Vec3 *eye, const Vec3 *center, const Vec3 *up) {
+  /*Vec3 diff = vec3_sub(eye, center);
+  Vec3 n = vec3_normalize(&diff);
+  Vec3 l = vec3_cross(up, &n);
+  l = vec3_normalize(&l);
 
-  triangle(canvas, a, b, c, &RED);
+  Vec3 m = vec3_cross(&n, &l);
+  m = vec3_normalize(&m);
+
+  Vec4 top = {l.x, l.y, l.z, 0.0f};
+  Vec4 mid_top = {m.x, m.y, m.z, 0.0f};
+  Vec4 mid_bottom = {n.x, n.y, n.z, 0.0f};
+  Vec4 bottom = {0.0f, 0.0f, 0.0f, 1.0f};
+  Mat4 res = {};
+  make_mat4(&top, &mid_top, &mid_bottom, &bottom, &res);
+  return res;*/
+  return glms_lookat(*eye, *center, *up);
 }
 
-void draw_test_triangles(SDL_Surface *canvas) {
-  // triangle(canvas, 7, 45, 35, 100, 45, 60, &RED);
-  // triangle(canvas, 120, 35, 90, 5, 45, 110, &WHITE);
-  // triangle(canvas, 115, 83, 80, 90, 85, 120, &GREEN);
+Mat4 projection = {};
+Mat4 view = {};
+Mat4 transform = {};
+
+uint32_t vert = 0;
+Vec3 tris[3];
+
+Vec4 simple_vertex_shader(const struct RasterizationPipeline *pipeline,
+                          struct Vertex *vertex) {
+  Vec4 res = {
+      vertex->position.x,
+      vertex->position.y,
+      vertex->position.z,
+      1.0f,
+  };
+
+   res = glms_mat4_mulv(transform, res);
+  //  res = glms_mat4_mulv(pipeline->view, res);
+  res = glms_mat4_mulv(projection, res);
+
+  tris[vert] = glms_vec3_make(&res.x);
+  vert = (vert + 1) % 3;
+
+  return res;
 }
 
-void draw_model(SDL_Surface *canvas, Model *model) {
-  for (uint32_t i = 0; i < model->face_count; i++) {
-    Vertex *a = &model->vertices[model->face_vertices[i * 3 + 0]];
-    Vertex *b = &model->vertices[model->face_vertices[i * 3 + 1]];
-    Vertex *c = &model->vertices[model->face_vertices[i * 3 + 2]];
+Vec3 simple_fragment_shader(IVec2 frag_coord, const InterpolatedVertex *v) {
 
-    Vec3 a_proj = viewport_project(canvas, persp(rot(a->position)));
-    Vec3 b_proj = viewport_project(canvas, persp(rot(b->position)));
-    Vec3 c_proj = viewport_project(canvas, persp(rot(c->position)));
+  Vec3 ab = glms_vec3_sub(tris[1], tris[0]);
+  Vec3 ac = glms_vec3_sub(tris[2], tris[1]);
+  Vec3 normal = glms_normalize(glms_cross(ab, ac));
+  /*Vec3 res = {};
+  res.x = v->uv.x * 255.0f;
+  res.y = v->uv.y * 255.0f;
+  res.z = 0.0f;*/
 
-    triangle(canvas, a_proj, b_proj, c_proj, &a->color);
-  }
+  float ambient = 0.4f;
+  Vec3 l = {1.0f, 1.0f, 1.0f};
+  float NoL = glms_dot(normal, l);
+  float diffuse = fmax(0.0, NoL);
+
+  Vec3 r = glms_vec3_sub(glms_vec3_scale(normal, 2.0f * NoL), l);
+  float e = 35.0f;
+  float specular = pow(fmax(r.z, 0.0f), e);
+
+  Vec3 res = glms_vec3_scale(
+      v->color, fmin(1.0f, ambient + 0.4 * diffuse + 0.9 * specular));
+  return res;
+  // return glms_vec3_scale(res, 255.0f);
+  // seturn res;
+  // return glms_vec3_scale(v->normal, 255.0f);
 }
 
 int main() {
-
   SDL_Init(SDL_INIT_VIDEO);
 
   uint32_t h = 640;
@@ -189,11 +141,23 @@ int main() {
 
   Model model = load_model("assets/diablo3_pose.obj");
   // Model model = load_model("assets/african_head.obj");
-  //  Model model = load_model("assets/boggie/body.obj");
+  // Model model = load_model("assets/boggie/body.obj");
 
+  RasterizationPipelineCreateInfo create_info = {
+      .topology = PRIMITIVE_TOPOLOGY_TRIANGLE,
+      .vertex_shader = simple_vertex_shader,
+      .fragment_shader = simple_fragment_shader,
+  };
   RasterizationPipeline pipeline = {};
+  create_rasterization_pipeline(w, h, &create_info, &pipeline);
 
-  create_rasterization_pipeline(w, h, &pipeline);
+  projection = perspective();
+  Vec3 eye = {-1, 0, 2};
+  Vec3 center = {0, 0, 0};
+  Vec3 up = {0, 1, 0};
+  view = look_at(&eye, &center, &up);
+  float a = M_PI / 6;
+  Vec3 axis = {0.0, 1.0, 0.0};
 
   SDL_Time current_time = 0;
   SDL_Time previous_time = 0;
@@ -217,6 +181,13 @@ int main() {
           static bool f = false;
           f = !f;
           SDL_SetWindowFullscreen(window, f);
+        } else if (event.key.key == SDLK_P) {
+          if (create_info.topology == PRIMITIVE_TOPOLOGY_LINE) {
+            create_info.topology = PRIMITIVE_TOPOLOGY_TRIANGLE;
+          } else {
+            create_info.topology = PRIMITIVE_TOPOLOGY_LINE;
+          }
+          create_rasterization_pipeline(w, h, &create_info, &pipeline);
         }
         break;
       case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED: {
@@ -227,7 +198,7 @@ int main() {
         destroy_rasterization_pipeline(&pipeline);
         w = event.window.data1;
         h = event.window.data2;
-        create_rasterization_pipeline(w, h, &pipeline);
+        create_rasterization_pipeline(w, h, &create_info, &pipeline);
         break;
       }
       default:
@@ -242,19 +213,23 @@ int main() {
     dt /= 1000000.0f;
     printf("fps: %f, Frame Time: %f\n", 1.0 / (dt / 1000.0f), dt);
 
+    a += 0.03f;
+    transform = glms_rotate(glms_mat4_identity(), a, axis);
+
     float zero = 0.0f;
     image_clear(&pipeline.z_buffer, &zero);
 
-    SDL_LockSurface(pipeline.canvas);
+    SDL_LockSurface(pipeline.framebuffer);
 
-    SDL_ClearSurface(pipeline.canvas, 0.0, 0.0, 0.0, 1.0);
+    SDL_ClearSurface(pipeline.framebuffer, 0.0, 0.0, 0.0, 1.0);
 
     pipeline_draw(&pipeline, &model);
 
-    SDL_UnlockSurface(pipeline.canvas);
+    SDL_UnlockSurface(pipeline.framebuffer);
 
     SDL_Surface *window_surface = SDL_GetWindowSurface(window);
-    BURNRAST_SDL_CHECK(SDL_BlitSurface(pipeline.canvas, 0, window_surface, 0))
+    BURNRAST_SDL_CHECK(
+        SDL_BlitSurface(pipeline.framebuffer, 0, window_surface, 0))
     BURNRAST_SDL_CHECK(SDL_UpdateWindowSurface(window));
 
     frames++;

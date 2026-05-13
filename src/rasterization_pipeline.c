@@ -21,39 +21,6 @@ Mat4 viewport(const int32_t x, const int32_t y, const int32_t w,
   return viewport;
 }
 
-Mat4 perspective() {
-  float f = 3.0f;
-  Mat4 res = glms_mat4_identity();
-  // res.data[2][3] = -1.0 / f;
-  res.m23 = -1.0 / f;
-
-  /*Vec4 top = {1.0f, 0.0f, 0.0f, 0.0f};
-  Vec4 mid_top = {0.0f, 1.0f, 0.0, 0.0f};
-  Vec4 mid_bottom = {0.0f, 0.0f, 1.0f, 0.0f};
-  Vec4 bottom = {0.0f, 0.0f, -1.0f / f, 1.0f};
-  make_mat4(&top, &mid_top, &mid_bottom, &bottom, &res);*/
-  return res;
-}
-
-Mat4 look_at(const Vec3 *eye, const Vec3 *center, const Vec3 *up) {
-  /*Vec3 diff = vec3_sub(eye, center);
-  Vec3 n = vec3_normalize(&diff);
-  Vec3 l = vec3_cross(up, &n);
-  l = vec3_normalize(&l);
-
-  Vec3 m = vec3_cross(&n, &l);
-  m = vec3_normalize(&m);
-
-  Vec4 top = {l.x, l.y, l.z, 0.0f};
-  Vec4 mid_top = {m.x, m.y, m.z, 0.0f};
-  Vec4 mid_bottom = {n.x, n.y, n.z, 0.0f};
-  Vec4 bottom = {0.0f, 0.0f, 0.0f, 1.0f};
-  Mat4 res = {};
-  make_mat4(&top, &mid_top, &mid_bottom, &bottom, &res);
-  return res;*/
-  return glms_lookat(*eye, *center, *up);
-}
-
 Vec3 viewport_project(const SDL_Surface *surface, Vec3 x) {
   Vec3 res;
   res.x = (x.x + 1.0f) * surface->w / 2;
@@ -63,105 +30,23 @@ Vec3 viewport_project(const SDL_Surface *surface, Vec3 x) {
   return res;
 }
 
-Vec3 persp(Vec3 v) {
-  float f = 3.0f;
-  float inv = 1.0 / (1.0 - v.z / f);
+void create_rasterization_pipeline(
+    uint32_t w, uint32_t h, const RasterizationPipelineCreateInfo *create_info,
+    RasterizationPipeline *pipeline) {
 
-  Vec3 res = {};
-  res.x = v.x * inv;
-  res.y = v.y * inv;
-  res.z = v.z * inv;
-  return res;
-}
-
-Vec3 rot(const Vec3 v) {
-  float a = M_PI / 6;
-  /*Mat3 rotation;
-  Vec3 top = {cosf(a), 0, sinf(a)};
-  Vec3 mid = {0, 1, 0};
-  Vec3 bottom = {-sinf(a), 0, cosf(a)};
-  glms_mat3_make([ top, mid, bottom, rotation ]);
-  return glms_mat4_mulv(&rotation, v);*/
-  Vec3 axis = {0.0, 1.0, 0.0};
-  return glms_mat4_mulv3(glms_rotate(glms_mat4_identity(), a, axis), v, 1.0);
-}
-
-uint32_t vert = 0;
-Vec3 tris[3];
-
-Vec4 simple_vertex_shader(const struct RasterizationPipeline *pipeline,
-                          struct Vertex *vertex) {
-  Vec4 res = {
-      vertex->position.x,
-      vertex->position.y,
-      vertex->position.z,
-      1.0f,
-  };
-  /*Vec3 r = persp(in);
-  res.x = r.x;
-  res.y = r.y;
-  res.z = r.z;*/
-  Vec3 tmp = glms_vec3_make(&res.x);
-  Vec3 rotated = rot(tmp);
-  Vec4 other = {rotated.x, rotated.y, rotated.z, 1.0f};
-  // res = glms_mat4_mulv(pipeline->view, res);
-
-  res = glms_mat4_mulv(pipeline->projection, other);
-
-  tris[vert] = glms_vec3_make(&res.x);
-  vert = (vert + 1) % 3;
-
-  return res;
-}
-
-Vec3 simple_fragment_shader(IVec2 frag_coord, const InterpolatedVertex *v) {
-
-  Vec3 ab = glms_vec3_sub(tris[1], tris[0]);
-  Vec3 ac = glms_vec3_sub(tris[2], tris[1]);
-  Vec3 normal = glms_normalize(glms_cross(ab, ac));
-  /*Vec3 res = {};
-  res.x = v->uv.x * 255.0f;
-  res.y = v->uv.y * 255.0f;
-  res.z = 0.0f;*/
-
-  float ambient = 0.4f;
-  Vec3 l = {1.0f, 1.0f, 1.0f};
-  float NoL = glms_dot(normal, l);
-  float diffuse = fmax(0.0, NoL);
-
-  Vec3 r = glms_vec3_sub(glms_vec3_scale(normal, 2.0f * NoL), l);
-  float e = 35.0f;
-  float specular = pow(fmax(r.z, 0.0f), e);
-
-  Vec3 res = glms_vec3_scale(
-      v->color, fmin(1.0f, ambient + 0.4 * diffuse + 0.9 * specular));
-  return res;
-  // return glms_vec3_scale(res, 255.0f);
-  //  return res;
-  //  return glms_vec3_scale(v->normal, 255.0f);
-  //   return v->color;
-}
-
-void create_rasterization_pipeline(uint32_t w, uint32_t h,
-                                   RasterizationPipeline *pipeline) {
-  Vec3 eye = {-1, 0, 2};
-  Vec3 center = {0, 0, 0};
-  Vec3 up = {0, 1, 0};
   printf("Creating pipeline: %ux%u\n", w, h);
 
   pipeline->viewport = viewport(w / 16, h / 16, w * 7 / 8, h * 7 / 8);
-  pipeline->projection = perspective();
-  pipeline->view = look_at(&eye, &center, &up);
   pipeline->show_z_buffer = false;
   pipeline->z_buffer = image_create(w, h, sizeof(float));
-  pipeline->canvas = SDL_CreateSurface(w, h, SDL_PIXELFORMAT_RGBA32);
-  pipeline->topology = PRIMITIVE_TOPOLOGY_TRIANGLE;
-  pipeline->vertex_shader = simple_vertex_shader;
-  pipeline->fragment_shader = simple_fragment_shader;
+  pipeline->framebuffer = SDL_CreateSurface(w, h, SDL_PIXELFORMAT_RGBA32);
+  pipeline->topology = create_info->topology;
+  pipeline->vertex_shader = create_info->vertex_shader;
+  pipeline->fragment_shader = create_info->fragment_shader;
 }
 
 void destroy_rasterization_pipeline(const RasterizationPipeline *pipeline) {
-  SDL_DestroySurface(pipeline->canvas);
+  SDL_DestroySurface(pipeline->framebuffer);
   image_free(&pipeline->z_buffer);
 }
 
@@ -253,11 +138,11 @@ void pipeline_triangle_aabb(RasterizationPipeline *pipeline, Vec3 a, Vec3 b,
       }*/
       if (pipeline->show_z_buffer) {
         Vec3 z_color = {z, z, z};
-        set_color(pipeline->canvas, x, y, &z_color);
+        set_color(pipeline->framebuffer, x, y, &z_color);
       } else {
         // set_color(pipeline->canvas, x, y, &interpolated.color);
         Vec3 frag_color = pipeline->fragment_shader(frag_coord, &interpolated);
-        set_color(pipeline->canvas, x, y, &frag_color);
+        set_color(pipeline->framebuffer, x, y, &frag_color);
       }
     }
   }
@@ -309,9 +194,9 @@ void line(SDL_Surface *canvas, float ax, float ay, float bx, float by,
 
 void triangle_outline(RasterizationPipeline *pipeline, Vec3 a, Vec3 b, Vec3 c,
                       const Vec3 *color) {
-  line(pipeline->canvas, a.x, a.y, b.x, b.y, color);
-  line(pipeline->canvas, b.x, b.y, c.x, c.y, color);
-  line(pipeline->canvas, c.x, c.y, a.x, a.y, color);
+  line(pipeline->framebuffer, a.x, a.y, b.x, b.y, color);
+  line(pipeline->framebuffer, b.x, b.y, c.x, c.y, color);
+  line(pipeline->framebuffer, c.x, c.y, a.x, a.y, color);
 }
 
 void rasterize(RasterizationPipeline *pipeline, const Vec4 clip0,
@@ -338,9 +223,9 @@ void rasterize(RasterizationPipeline *pipeline, const Vec4 clip0,
       },
   };
 
-  Vec3 screen0 = viewport_project(pipeline->canvas, glms_vec3_make(&ndc[0].x));
-  Vec3 screen1 = viewport_project(pipeline->canvas, glms_vec3_make(&ndc[1].x));
-  Vec3 screen2 = viewport_project(pipeline->canvas, glms_vec3_make(&ndc[2].x));
+  Vec3 screen0 = viewport_project(pipeline->framebuffer, glms_vec3_make(&ndc[0].x));
+  Vec3 screen1 = viewport_project(pipeline->framebuffer, glms_vec3_make(&ndc[1].x));
+  Vec3 screen2 = viewport_project(pipeline->framebuffer, glms_vec3_make(&ndc[2].x));
 
   /*Vec3 screen0 =
       glms_mat4_mulv3(pipeline->viewport, glms_vec3_make(&ndc[0].x), 1.0f);
@@ -357,24 +242,6 @@ void rasterize(RasterizationPipeline *pipeline, const Vec4 clip0,
   }
 }
 
-Vec4 apply_transform(const RasterizationPipeline *pipeline, Vec3 in) {
-  Vec4 res = {
-      in.x,
-      in.y,
-      in.z,
-      1.0f,
-  };
-
-  /*Vec3 r = persp(in);
-  res.x = r.x;
-  res.y = r.y;
-  res.z = r.z;*/
-
-  // res = mat4_mul_vec(&pipeline->view, &res);
-  res = glms_mat4_mulv(pipeline->projection, res);
-  return res;
-}
-
 void pipeline_draw(RasterizationPipeline *pipeline, const Model *model) {
   for (uint32_t i = 0; i < model->face_count; i++) {
     // Vertex *vertex_a = &model->vertices[model->face_vertices[i * 3 + 0]];
@@ -384,10 +251,6 @@ void pipeline_draw(RasterizationPipeline *pipeline, const Model *model) {
     Vertex *vertex_a = &model->vertices[i * 3 + 0];
     Vertex *vertex_b = &model->vertices[i * 3 + 1];
     Vertex *vertex_c = &model->vertices[i * 3 + 2];
-
-    /*Vec4 clip_a = apply_transform(pipeline, vertex_a->position);
-    Vec4 clip_b = apply_transform(pipeline, vertex_b->position);
-    Vec4 clip_c = apply_transform(pipeline, vertex_c->position);*/
 
     Vec4 clip_a = pipeline->vertex_shader(pipeline, vertex_a);
     Vec4 clip_b = pipeline->vertex_shader(pipeline, vertex_b);
