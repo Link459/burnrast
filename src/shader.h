@@ -8,7 +8,8 @@ struct InterpolatedVertex;
 struct Vertex;
 
 typedef Vec4 (*VertexShader)(const struct RasterizationPipeline *,
-                             struct Vertex *vertex);
+                             struct Vertex *vertex,
+                             struct InterpolatedVertex *interpolated_vertex);
 typedef Vec3 (*FragmentShader)(IVec2 frag_coord,
                                const struct InterpolatedVertex *v);
 

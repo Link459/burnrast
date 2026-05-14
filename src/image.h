@@ -1,6 +1,7 @@
 #ifndef IMAGE_H
 #define IMAGE_H
 
+#include "vec.h"
 #include <stdint.h>
 
 typedef struct {
@@ -15,6 +16,9 @@ void image_free(const Image *image);
 
 void image_clear(Image *image, void *value);
 void image_set(Image *image, uint32_t x, uint32_t y, void *value);
-void image_get(Image *image, uint32_t x, uint32_t y, void *value);
+void image_get(const Image *image, uint32_t x, uint32_t y, void *value);
+
+Image image_load(const char *path);
+Vec3 image_sample(const Image *image, Vec2 uv);
 
 #endif /* IMAGE_H */

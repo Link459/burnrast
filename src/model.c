@@ -1,4 +1,5 @@
 #include "model.h"
+#include "core.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -15,12 +16,6 @@ bool is_uv(const char *current) {
 bool is_normal(const char *current) {
   return current[0] == 'v' && current[1] == 'n';
 }
-
-#define BURNRAST_MODEL_ERROR()                                                 \
-  do {                                                                         \
-    printf("Failed to parse line: %s", current_line);                          \
-    exit(-1);                                                                  \
-  } while (1)
 
 Model load_model(const char *filepath) {
   FILE *file = fopen(filepath, "r");
@@ -119,7 +114,7 @@ Model load_model(const char *filepath) {
       vertices[current_vertex + 1].normal = normals[normal[1] - 1];
       vertices[current_vertex + 2].normal = normals[normal[2] - 1];
 
-      //Vec3 color = {255.0f, 255.0f, 255.0f};
+      // Vec3 color = {255.0f, 255.0f, 255.0f};
       Vec3 color = {1.0f, 1.0f, 1.0f};
       vertices[current_vertex + 0].color = color;
       vertices[current_vertex + 1].color = color;

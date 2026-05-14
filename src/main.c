@@ -5,23 +5,11 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "core.h"
 #include "image.h"
 #include "model.h"
 #include "rasterization_pipeline.h"
 #include "vec.h"
-
-#define BURNRAST_SDL_CHECK(x)                                                  \
-  if (!x) {                                                                    \
-    printf("%s\n", SDL_GetError());                                            \
-  }
-
-#define BURNRAST_SWAP(a, b)                                                    \
-  int32_t tmp_##a = a;                                                         \
-  a = b;                                                                       \
-  b = tmp_##a
-
-#define min(a, b) (a < b ? a : b)
-#define max(a, b) (a > b ? a : b)
 
 Vec3 persp(Vec3 v) {
   float f = 3.0f;
@@ -83,17 +71,23 @@ Mat4 projection = {};
 Mat4 view = {};
 Mat4 transform = {};
 
+Image color_tex;
+
 uint32_t vert = 0;
 Vec3 tris[3];
 
 Vec4 simple_vertex_shader(const struct RasterizationPipeline *pipeline,
-                          struct Vertex *vertex) {
+                          struct Vertex *vertex,
+                          struct InterpolatedVertex *interpolated_vertex) {
   Vec4 res = {
       vertex->position.x,
       vertex->position.y,
       vertex->position.z,
       1.0f,
   };
+  interpolated_vertex->normal = vertex->normal;
+  interpolated_vertex->uv = glms_vec2_make(&vertex->uvw.x);
+    interpolated_vertex->color = vertex->color;
 
   res = glms_mat4_mulv(transform, res);
   //  res = glms_mat4_mulv(pipeline->view, res);
@@ -107,18 +101,18 @@ Vec4 simple_vertex_shader(const struct RasterizationPipeline *pipeline,
 
 Vec3 simple_fragment_shader(IVec2 frag_coord, const InterpolatedVertex *v) {
 
-  Vec3 ab = glms_vec3_sub(tris[1], tris[0]);
+  /*Vec3 ab = glms_vec3_sub(tris[1], tris[0]);
   Vec3 ac = glms_vec3_sub(tris[2], tris[1]);
-  Vec3 normal = glms_normalize(glms_cross(ab, ac));
+  Vec3 normal = glms_normalize(glms_cross(ab, ac));*/
+  Vec3 normal = v->normal;
   /*Vec3 res = {};
-  res.x = v->uv.x * 255.0f;
-  res.y = v->uv.y * 255.0f;
+  res.x = v->uv.x;
+  res.y = v->uv.y;
   res.z = 0.0f;*/
 
   float ambient = 0.3f;
   Vec3 l = {1.0f, 1.0f, 1.0f};
   l = glms_normalize(l);
-  Vec3 c = {0.0f, 0.0f, 1.0f};
   float NoL = glms_dot(normal, l);
   float diffuse = fmax(0.0, NoL);
 
@@ -126,17 +120,16 @@ Vec3 simple_fragment_shader(IVec2 frag_coord, const InterpolatedVertex *v) {
   Vec3 r = glms_vec3_reflect(glms_vec3_negate(l), normal);
   float e = 35.0f;
   // float specular = powf(glms_vec3_dot(c, r), e);
-  float specular = powf(max(0.0, r.z), e);
+  float specular = powf(fmax(0.0, r.z), e);
 
-  if (specular >= 1.0f) {
+  /*if (specular >= 1.0f) {
     printf("a: %f,d: %f,s: %f\n", ambient, diffuse, specular);
-  }
-  Vec3 res =
-      glms_vec3_scale(v->color, fmin(1.0f, ambient + 0.4 * diffuse + specular));
+  }*/
+
+  Vec3 color = image_sample(&color_tex, v->uv);
+  Vec3 res = glms_vec3_scale(
+      color, fmin(1.0f, ambient + 0.4 * diffuse + 0.9 * specular));
   return res;
-  // return glms_vec3_scale(res, 255.0f);
-  // seturn res;
-  // return glms_vec3_scale(v->normal, 255.0f);
 }
 
 int main() {
@@ -146,8 +139,9 @@ int main() {
   uint32_t w = 640;
   SDL_Window *window = SDL_CreateWindow("burnrast", w, h, 0);
 
-  // Model model = load_model("assets/diablo3_pose.obj");
-  Model model = load_model("assets/african_head.obj");
+  // Model model = load_model("assets/diable3_pose/diablo3_pose.obj");
+  Model model = load_model("assets/african_head/african_head.obj");
+  color_tex = image_load("assets/african_head/african_head_diffuse.tga");
   // Model model = load_model("assets/boggie/body.obj");
 
   RasterizationPipelineCreateInfo create_info = {
@@ -244,6 +238,7 @@ int main() {
 
   destroy_rasterization_pipeline(&pipeline);
   model_free(&model);
+  image_free(&color_tex);
   SDL_Quit();
   return 0;
 }
