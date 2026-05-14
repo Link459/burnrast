@@ -43,14 +43,19 @@ static inline Vec3 random_color() {
 // TODO: oob access in this function
 static inline void set_color(SDL_Surface *canvas, uint32_t x, uint32_t y,
                              const Vec3 *color) {
-  if (x >= canvas->w || y >= canvas->h) {
+
+  y = (canvas->h - y);
+  /*if (x >= canvas->w || y >= canvas->h) {
     return;
   }
   uint32_t *buffer = (uint32_t *)canvas->pixels;
-  uint32_t offset = (canvas->h - y) * canvas->w + x;
+  uint32_t offset = y * canvas->w + x;
   uint32_t mapped_color =
       SDL_MapSurfaceRGB(canvas, color->r, color->g, color->b);
-  memcpy((buffer + offset), &mapped_color, sizeof(uint32_t));
+  memcpy((buffer + offset), &mapped_color, sizeof(uint32_t));*/
+
+  // SDL_WriteSurfacePixel(canvas, x, y, color->x, color->y, color->z, 255);
+  SDL_WriteSurfacePixelFloat(canvas, x, y, color->x, color->y, color->z, 1.0f);
 }
 
 static inline void set_color_rgba(SDL_Surface *canvas, uint32_t x, uint32_t y,

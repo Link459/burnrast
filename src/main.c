@@ -95,7 +95,7 @@ Vec4 simple_vertex_shader(const struct RasterizationPipeline *pipeline,
       1.0f,
   };
 
-   res = glms_mat4_mulv(transform, res);
+  res = glms_mat4_mulv(transform, res);
   //  res = glms_mat4_mulv(pipeline->view, res);
   res = glms_mat4_mulv(projection, res);
 
@@ -115,17 +115,24 @@ Vec3 simple_fragment_shader(IVec2 frag_coord, const InterpolatedVertex *v) {
   res.y = v->uv.y * 255.0f;
   res.z = 0.0f;*/
 
-  float ambient = 0.4f;
+  float ambient = 0.3f;
   Vec3 l = {1.0f, 1.0f, 1.0f};
+  l = glms_normalize(l);
+  Vec3 c = {0.0f, 0.0f, 1.0f};
   float NoL = glms_dot(normal, l);
   float diffuse = fmax(0.0, NoL);
 
-  Vec3 r = glms_vec3_sub(glms_vec3_scale(normal, 2.0f * NoL), l);
+  // Vec3 r = glms_vec3_sub(glms_vec3_scale(normal, 2.0f * NoL), l);
+  Vec3 r = glms_vec3_reflect(glms_vec3_negate(l), normal);
   float e = 35.0f;
-  float specular = pow(fmax(r.z, 0.0f), e);
+  // float specular = powf(glms_vec3_dot(c, r), e);
+  float specular = powf(max(0.0, r.z), e);
 
-  Vec3 res = glms_vec3_scale(
-      v->color, fmin(1.0f, ambient + 0.4 * diffuse + 0.9 * specular));
+  if (specular >= 1.0f) {
+    printf("a: %f,d: %f,s: %f\n", ambient, diffuse, specular);
+  }
+  Vec3 res =
+      glms_vec3_scale(v->color, fmin(1.0f, ambient + 0.4 * diffuse + specular));
   return res;
   // return glms_vec3_scale(res, 255.0f);
   // seturn res;
@@ -139,8 +146,8 @@ int main() {
   uint32_t w = 640;
   SDL_Window *window = SDL_CreateWindow("burnrast", w, h, 0);
 
-  Model model = load_model("assets/diablo3_pose.obj");
-  // Model model = load_model("assets/african_head.obj");
+  // Model model = load_model("assets/diablo3_pose.obj");
+  Model model = load_model("assets/african_head.obj");
   // Model model = load_model("assets/boggie/body.obj");
 
   RasterizationPipelineCreateInfo create_info = {
@@ -213,7 +220,7 @@ int main() {
     dt /= 1000000.0f;
     printf("fps: %f, Frame Time: %f\n", 1.0 / (dt / 1000.0f), dt);
 
-    a += 0.03f;
+    // a += 0.03f;
     transform = glms_rotate(glms_mat4_identity(), a, axis);
 
     float zero = 0.0f;

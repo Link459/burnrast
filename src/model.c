@@ -23,7 +23,6 @@ bool is_normal(const char *current) {
   } while (1)
 
 Model load_model(const char *filepath) {
-
   FILE *file = fopen(filepath, "r");
 
   ssize_t read = 0;
@@ -120,7 +119,8 @@ Model load_model(const char *filepath) {
       vertices[current_vertex + 1].normal = normals[normal[1] - 1];
       vertices[current_vertex + 2].normal = normals[normal[2] - 1];
 
-      Vec3 color = {152.0f, 152.0f, 152.0f};
+      //Vec3 color = {255.0f, 255.0f, 255.0f};
+      Vec3 color = {1.0f, 1.0f, 1.0f};
       vertices[current_vertex + 0].color = color;
       vertices[current_vertex + 1].color = color;
       vertices[current_vertex + 2].color = color;
