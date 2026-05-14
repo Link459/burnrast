@@ -70,48 +70,39 @@ Mat4 look_at(const Vec3 *eye, const Vec3 *center, const Vec3 *up) {
 Mat4 projection = {};
 Mat4 view = {};
 Mat4 transform = {};
+Mat4 normal_transform = {};
 
 Image color_tex;
-
-uint32_t vert = 0;
-Vec3 tris[3];
+Image normal_tex;
 
 Vec4 simple_vertex_shader(const struct RasterizationPipeline *pipeline,
                           struct Vertex *vertex,
-                          struct InterpolatedVertex *interpolated_vertex) {
+                          InterpolationVertex *interpolated_vertex) {
   Vec4 res = {
       vertex->position.x,
       vertex->position.y,
       vertex->position.z,
       1.0f,
   };
-  interpolated_vertex->normal = vertex->normal;
+  interpolated_vertex->normal =
+      glms_mat4_mulv3(normal_transform, vertex->normal, 1.0f);
+  // interpolated_vertex->normal = vertex->normal;
   interpolated_vertex->uv = glms_vec2_make(&vertex->uvw.x);
-    interpolated_vertex->color = vertex->color;
 
   res = glms_mat4_mulv(transform, res);
-  //  res = glms_mat4_mulv(pipeline->view, res);
+  // res = glms_mat4_mulv(view, res);
   res = glms_mat4_mulv(projection, res);
-
-  tris[vert] = glms_vec3_make(&res.x);
-  vert = (vert + 1) % 3;
 
   return res;
 }
 
 Vec3 simple_fragment_shader(IVec2 frag_coord, const InterpolatedVertex *v) {
 
-  /*Vec3 ab = glms_vec3_sub(tris[1], tris[0]);
-  Vec3 ac = glms_vec3_sub(tris[2], tris[1]);
-  Vec3 normal = glms_normalize(glms_cross(ab, ac));*/
-  Vec3 normal = v->normal;
-  /*Vec3 res = {};
-  res.x = v->uv.x;
-  res.y = v->uv.y;
-  res.z = 0.0f;*/
+  // Vec3 normal = v->normal;
+  Vec3 normal = image_sample_normal(&normal_tex, v->uv);
 
   float ambient = 0.3f;
-  Vec3 l = {1.0f, 1.0f, 1.0f};
+  Vec3 l = {0.0f, 1.0f, 1.0f};
   l = glms_normalize(l);
   float NoL = glms_dot(normal, l);
   float diffuse = fmax(0.0, NoL);
@@ -119,12 +110,7 @@ Vec3 simple_fragment_shader(IVec2 frag_coord, const InterpolatedVertex *v) {
   // Vec3 r = glms_vec3_sub(glms_vec3_scale(normal, 2.0f * NoL), l);
   Vec3 r = glms_vec3_reflect(glms_vec3_negate(l), normal);
   float e = 35.0f;
-  // float specular = powf(glms_vec3_dot(c, r), e);
   float specular = powf(fmax(0.0, r.z), e);
-
-  /*if (specular >= 1.0f) {
-    printf("a: %f,d: %f,s: %f\n", ambient, diffuse, specular);
-  }*/
 
   Vec3 color = image_sample(&color_tex, v->uv);
   Vec3 res = glms_vec3_scale(
@@ -142,6 +128,7 @@ int main() {
   // Model model = load_model("assets/diable3_pose/diablo3_pose.obj");
   Model model = load_model("assets/african_head/african_head.obj");
   color_tex = image_load("assets/african_head/african_head_diffuse.tga");
+  normal_tex = image_load("assets/african_head/african_head_nm.tga");
   // Model model = load_model("assets/boggie/body.obj");
 
   RasterizationPipelineCreateInfo create_info = {
@@ -216,6 +203,7 @@ int main() {
 
     // a += 0.03f;
     transform = glms_rotate(glms_mat4_identity(), a, axis);
+    normal_transform = glms_mat4_inv(glms_mat4_transpose(transform));
 
     float zero = 0.0f;
     image_clear(&pipeline.z_buffer, &zero);

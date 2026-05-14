@@ -114,11 +114,7 @@ Model load_model(const char *filepath) {
       vertices[current_vertex + 1].normal = normals[normal[1] - 1];
       vertices[current_vertex + 2].normal = normals[normal[2] - 1];
 
-      // Vec3 color = {255.0f, 255.0f, 255.0f};
-      Vec3 color = {1.0f, 1.0f, 1.0f};
-      vertices[current_vertex + 0].color = color;
-      vertices[current_vertex + 1].color = color;
-      vertices[current_vertex + 2].color = color;
+      
 
       face_vertices[current_vertex + 0] = current_vertex + 0;
       face_vertices[current_vertex + 1] = current_vertex + 1;

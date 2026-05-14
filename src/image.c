@@ -50,7 +50,7 @@ void image_get(const Image *image, uint32_t x, uint32_t y, void *value) {
 #include "../stb_image.h"
 
 Image image_load(const char *path) {
-    stbi_set_flip_vertically_on_load(true);
+  stbi_set_flip_vertically_on_load(true);
   int32_t x, y, channels;
   stbi_uc *data = stbi_load(path, &x, &y, &channels, STBI_rgb_alpha);
 
@@ -73,4 +73,16 @@ Vec3 image_sample(const Image *image, Vec2 uv) {
   };
 
   return glms_vec3_make(float_data);
+}
+
+Vec3 image_sample_normal(const Image *image, Vec2 uv) {
+  Vec3 sample = image_sample(image, uv);
+  sample.x *= 2.0f;
+  sample.y *= 2.0f;
+  sample.z *= 2.0f;
+
+  sample.x -= 1.0f;
+  sample.y -= 1.0f;
+  sample.z -= 1.0f;
+    return sample;
 }

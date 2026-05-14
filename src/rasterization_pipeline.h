@@ -29,10 +29,10 @@ typedef struct RasterizationPipeline {
 } RasterizationPipeline;
 
 typedef struct InterpolatedVertex {
-  Vec3 color;
   Vec2 uv;
   Vec3 normal;
 } InterpolatedVertex;
+typedef InterpolatedVertex InterpolationVertex;
 
 void create_rasterization_pipeline(
     uint32_t w, uint32_t h, const RasterizationPipelineCreateInfo *create_info,

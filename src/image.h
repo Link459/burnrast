@@ -20,5 +20,6 @@ void image_get(const Image *image, uint32_t x, uint32_t y, void *value);
 
 Image image_load(const char *path);
 Vec3 image_sample(const Image *image, Vec2 uv);
+Vec3 image_sample_normal(const Image *image, Vec2 uv);
 
 #endif /* IMAGE_H */
