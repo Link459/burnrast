@@ -54,7 +54,13 @@ Image image_load(const char *path) {
   int32_t x, y, channels;
   stbi_uc *data = stbi_load(path, &x, &y, &channels, STBI_rgb_alpha);
 
-  Image image = image_create(x, y, sizeof(stbi_uc) * 4);
+  // Image image = image_create(x, y, sizeof(stbi_uc) * 4);
+  Image image = {
+      .width = x,
+      .height = y,
+      .stride = sizeof(stbi_uc) * 4,
+      .data = data,
+  };
   image.data = data;
   return image;
 }
@@ -84,5 +90,5 @@ Vec3 image_sample_normal(const Image *image, Vec2 uv) {
   sample.x -= 1.0f;
   sample.y -= 1.0f;
   sample.z -= 1.0f;
-    return sample;
+  return sample;
 }

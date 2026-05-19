@@ -79,18 +79,18 @@ Image tangent_normal_tex;
 Vec3 tri[3];
 uint32_t current_tri = 0;
 
-Vec4 simple_vertex_shader(struct Vertex *vertex,
-                          InterpolationVertex *interpolated_vertex) {
+Vec4 simple_vertex_shader(void *v_vertex, void *v_interpolated_vertex) {
+  ModelVertex *vertex = v_vertex;
+  // InterpolatedVertex *interpolated_vertex = v_interpolated_vertex;
   Vec4 res = {
       vertex->position.x,
       vertex->position.y,
       vertex->position.z,
       1.0f,
   };
-  interpolated_vertex->normal =
-      glms_mat4_mulv3(normal_transform, vertex->normal, 1.0f);
-  // interpolated_vertex->normal = vertex->normal;
-  interpolated_vertex->uv = glms_vec2_make(&vertex->uvw.x);
+  Vec3 normal = glms_mat4_mulv3(normal_transform, vertex->normal, 1.0f);
+  // Vec3 normal = vertex->normal;
+  Vec2 uv = glms_vec2_make(&vertex->uvw.x);
 
   res = glms_mat4_mulv(transform, res);
   // res = glms_mat4_mulv(view, res);
@@ -99,23 +99,24 @@ Vec4 simple_vertex_shader(struct Vertex *vertex,
   tri[current_tri] = glms_vec3_make(&res.x);
   current_tri = (current_tri + 1) % 3;
 
+  InterpolatedVertex interp = {uv, normal};
+  memcpy(v_interpolated_vertex, &interp, sizeof(interp));
+
   return res;
 }
 
-void simple_interpolation_shader(void *final, const void *a, const void *b,
-                                 const void *c, const InterpolateInput *input) {
+void simple_interpolation_shader(void *output, const void *a, const void *b,
+                                 const void *c,
+                                 const InterpolationInput *input) {
   const InterpolatedVertex *v_a = a;
   const InterpolatedVertex *v_b = b;
   const InterpolatedVertex *v_c = c;
-  float alpha = input->alpha;
-  float beta = input->beta;
-  float gamma = input->gamma;
 
-  Vec3 normal = {BURNRAST_INTERPOLATE3(v_a->normal, v_b->normal, v_c->normal)};
-  Vec2 uv = {BURNRAST_INTERPOLATE2(v_a->uv, v_b->uv, v_c->uv)};
+  Vec3 normal = {
+      BURNRAST_INTERPOLATE3(input, v_a->normal, v_b->normal, v_c->normal)};
+  Vec2 uv = {BURNRAST_INTERPOLATE2(input, v_a->uv, v_b->uv, v_c->uv)};
   InterpolatedVertex v_final = {.uv = uv, .normal = normal};
-  memcpy(final, &v_final, sizeof(InterpolatedVertex));
-  // memcpy(final + sizeof(Vec2), &normal, sizeof(Vec3));
+  memcpy(output, &v_final, sizeof(InterpolatedVertex));
 }
 
 Vec3 simple_fragment_shader(void *vertex, const FragmentInput *input) {
@@ -163,8 +164,10 @@ int main() {
   RasterizationPipelineCreateInfo create_info = {
       .topology = PRIMITIVE_TOPOLOGY_TRIANGLE,
       .vertex_shader = simple_vertex_shader,
-      .interpolate_shader = simple_interpolation_shader,
+      .interpolation_shader = simple_interpolation_shader,
       .fragment_shader = simple_fragment_shader,
+      .interpolation_vertex_size = sizeof(InterpolatedVertex),
+      .vertex_size = sizeof(ModelVertex),
   };
   RasterizationPipeline pipeline = {};
   create_rasterization_pipeline(w, h, &create_info, &pipeline);
@@ -243,6 +246,7 @@ int main() {
     SDL_ClearSurface(pipeline.framebuffer, 0.0, 0.0, 0.0, 1.0);
 
     pipeline_draw(&pipeline, &model);
+    // pipeline_draw_special(&pipeline, model.vertices, model.vertex_count);
 
     SDL_UnlockSurface(pipeline.framebuffer);
 
@@ -254,9 +258,12 @@ int main() {
     frames++;
   }
 
+  SDL_DestroyWindow(window);
   destroy_rasterization_pipeline(&pipeline);
   model_free(&model);
   image_free(&color_tex);
+  image_free(&normal_tex);
+  image_free(&tangent_normal_tex);
   SDL_Quit();
   return 0;
 }

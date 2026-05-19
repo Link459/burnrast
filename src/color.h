@@ -1,6 +1,7 @@
 #ifndef COLOR_H
 #define COLOR_H
 
+#include "core.h"
 #include "vec.h"
 #include <SDL3/SDL_surface.h>
 #include <stdint.h>
@@ -55,6 +56,9 @@ static inline void set_color(SDL_Surface *canvas, uint32_t x, uint32_t y,
   memcpy((buffer + offset), &mapped_color, sizeof(uint32_t));*/
 
   // SDL_WriteSurfacePixel(canvas, x, y, color->x, color->y, color->z, 255);
+  /*BURNRAST_SDL_CHECK(SDL_WriteSurfacePixelFloat(canvas, x, y, color->x,
+                                                color->y, color->z, 1.0f));*/
+
   SDL_WriteSurfacePixelFloat(canvas, x, y, color->x, color->y, color->z, 1.0f);
 }
 

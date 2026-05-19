@@ -12,7 +12,7 @@ debug:
 	$(CC) $(SRCS) $(LDFLAGS) -g -o burnrast
 
 asan:
-	$(CC) $(SRCS) $(LDFLAGS) -fsanitize=address -o burnrast
+	$(CC) $(SRCS) $(LDFLAGS) -g -fsanitize=address -o burnrast
 
 ubsan:
 	$(CC) $(SRCS) $(LDFLAGS) -fsanitize=undefined -o burnrast

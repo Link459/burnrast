@@ -43,8 +43,10 @@ void create_rasterization_pipeline(
   pipeline->framebuffer = SDL_CreateSurface(w, h, SDL_PIXELFORMAT_RGBA32);
   pipeline->topology = create_info->topology;
   pipeline->vertex_shader = create_info->vertex_shader;
-  pipeline->interpolate_shader = create_info->interpolate_shader;
+  pipeline->interpolation_shader = create_info->interpolation_shader;
   pipeline->fragment_shader = create_info->fragment_shader;
+  pipeline->interpolation_vertex_size = create_info->interpolation_vertex_size;
+  pipeline->vertex_size = create_info->vertex_size;
 }
 
 void destroy_rasterization_pipeline(const RasterizationPipeline *pipeline) {
@@ -94,7 +96,6 @@ void pipeline_triangle_aabb(RasterizationPipeline *pipeline, Vec3 a, Vec3 b,
       }
       image_set(&pipeline->z_buffer, x, y, &z);
 
-      IVec2 frag_coord = {x, y};
       /*float k = min(alpha, min(beta, gamma));
       if (k > 0.1f) {
         continue;
@@ -104,30 +105,19 @@ void pipeline_triangle_aabb(RasterizationPipeline *pipeline, Vec3 a, Vec3 b,
         set_color(pipeline->framebuffer, x, y, &z_color);
       } else {
         // Buffer for interpolated vertex
-        uint8_t buf[128];
+        void *buf = alloca(pipeline->interpolation_vertex_size);
 
-        InterpolateInput interp_input = {
-                    .alpha = alpha,
-                    .beta = beta,
-                    .gamma = gamma,
-                };
-        pipeline->interpolate_shader(buf, vertex_a, vertex_b, vertex_c,
+        InterpolationInput interp_input = {
+            .alpha = alpha,
+            .beta = beta,
+            .gamma = gamma,
+        };
+        pipeline->interpolation_shader(buf, vertex_a, vertex_b, vertex_c,
                                      &interp_input);
-        Vec2 interpolated_uv = {};
-        // BURNRAST_INTERPOLATE2(vertex_a->uv, vertex_b->uv, vertex_c->uv)};
-        Vec3 interpolated_normal =
-            {}; // BURNRAST_INTERPOLATE3(
-                // vertex_a->normal, vertex_b->normal, vertex_c->normal)};
-
-        InterpolatedVertex interpolated = {};
-        interpolated.uv = interpolated_uv;
-        interpolated.normal = interpolated_normal;
-        // set_color(pipeline->canvas, x, y, &interpolated.color);
-
-        FragmentInput frag_input = {};
-        Vec3 frag_color = pipeline->fragment_shader(&buf, &frag_input);
-        // Vec3 frag_color = pipeline->fragment_shader(frag_coord,
-        // &interpolated);
+        FragmentInput frag_input = {
+            .frag_coord = {x, y},
+        };
+        Vec3 frag_color = pipeline->fragment_shader(buf, &frag_input);
         set_color(pipeline->framebuffer, x, y, &frag_color);
       }
     }
@@ -232,10 +222,38 @@ void pipeline_draw(RasterizationPipeline *pipeline, const Model *model) {
     // Vertex *vertex_b = &model->vertices[model->face_vertices[i * 3 + 1]];
     // Vertex *vertex_c = &model->vertices[model->face_vertices[i * 3 + 2]];
 
-    Vertex *vertex_a = &model->vertices[i * 3 + 0];
-    Vertex *vertex_b = &model->vertices[i * 3 + 1];
-    Vertex *vertex_c = &model->vertices[i * 3 + 2];
+    ModelVertex *vertex_a = &model->vertices[i * 3 + 0];
+    ModelVertex *vertex_b = &model->vertices[i * 3 + 1];
+    ModelVertex *vertex_c = &model->vertices[i * 3 + 2];
 
+    void *a = alloca(pipeline->interpolation_vertex_size);
+    void *b = alloca(pipeline->interpolation_vertex_size);
+    void *c = alloca(pipeline->interpolation_vertex_size);
+    // InterpolationVertex a = {};
+    // InterpolationVertex b = {};
+    // InterpolationVertex c = {};
+    Vec4 clip_a = pipeline->vertex_shader(vertex_a, a);
+    Vec4 clip_b = pipeline->vertex_shader(vertex_b, b);
+    Vec4 clip_c = pipeline->vertex_shader(vertex_c, c);
+
+    rasterize(pipeline, clip_a, clip_b, clip_c, a, b, c);
+  }
+}
+
+void pipeline_draw_special(RasterizationPipeline *pipeline,
+                           const void *vertices, uint32_t vertex_count) {
+  for (uint32_t i = 0; i < vertex_count; i++) {
+
+    void *vertex_a =
+        ((uint8_t *)vertices) + (i * 3 + 0) * pipeline->vertex_size;
+    void *vertex_b =
+        ((uint8_t *)vertices) + (i * 3 + 1) * pipeline->vertex_size;
+    void *vertex_c =
+        ((uint8_t *)vertices) + (i * 3 + 2) * pipeline->vertex_size;
+
+    // void *a = alloca(pipeline->interpolation_vertex_size);
+    // void *b = alloca(pipeline->interpolation_vertex_size);
+    // void *c = alloca(pipeline->interpolation_vertex_size);
     InterpolationVertex a = {};
     InterpolationVertex b = {};
     InterpolationVertex c = {};

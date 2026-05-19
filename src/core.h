@@ -22,11 +22,13 @@
     exit(-1);                                                                  \
   } while (1)
 
-#define BURNRAST_INTERPOLATE2(a, b, c)                                         \
-  alpha *a.x + beta *b.x + gamma *c.x, alpha *a.y + beta *b.y + gamma *c.y,
+#define BURNRAST_INTERPOLATE2(input, a, b, c)                                  \
+  input->alpha *a.x + input->beta *b.x + input->gamma *c.x,                           \
+      input->alpha *a.y + input->beta *b.y + input->gamma *c.y,
 
-#define BURNRAST_INTERPOLATE3(a, b, c)                                         \
-  alpha *a.x + beta *b.x + gamma *c.x, alpha *a.y + beta *b.y + gamma *c.y,    \
-      alpha *a.z + beta *b.z + gamma *c.z,
+#define BURNRAST_INTERPOLATE3(input, a, b, c)                                  \
+  input->alpha *a.x + input->beta *b.x + input->gamma *c.x,                    \
+      input->alpha *a.y + input->beta *b.y + input->gamma *c.y,                \
+      input->alpha *a.z + input->beta *b.z + input->gamma *c.z,
 
 #endif /* CORE_H */

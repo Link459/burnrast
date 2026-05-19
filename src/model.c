@@ -21,7 +21,7 @@ Model load_model(const char *filepath) {
   FILE *file = fopen(filepath, "r");
   if (!file) {
     printf("Failed to open path: %s\n", filepath);
-        exit(-1);
+    exit(-1);
   }
 
   ssize_t read = 0;
@@ -31,7 +31,6 @@ Model load_model(const char *filepath) {
   uint32_t position_count = 0;
   uint32_t normal_count = 0;
   uint32_t uv_count = 0;
-
 
   uint32_t face_count = 0;
   while ((read = getline(&current_line, &len, file) != -1)) {
@@ -48,7 +47,7 @@ Model load_model(const char *filepath) {
 
   uint32_t vertex_count =
       face_count * 3; // fmax(uv_count, fmax(position_count, normal_count));
-  Vertex *vertices = malloc(vertex_count * sizeof(Vertex));
+  ModelVertex *vertices = malloc(vertex_count * sizeof(ModelVertex));
 
   Vec3 *positions = malloc(position_count * sizeof(Vec3));
   Vec3 *uvs = malloc(uv_count * sizeof(Vec3));
@@ -125,6 +124,8 @@ Model load_model(const char *filepath) {
       current_vertex += 3;
     }
   }
+
+    free(current_line);
 
   assert(current_vertex == vertex_count);
 

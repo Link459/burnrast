@@ -10,7 +10,7 @@ typedef struct Vertex {
   Vec3 position;
   Vec3 uvw;
   Vec3 normal;
-} Vertex;
+} ModelVertex;
 
 typedef struct InterpolatedVertex {
   Vec2 uv;
@@ -19,7 +19,7 @@ typedef struct InterpolatedVertex {
 typedef InterpolatedVertex InterpolationVertex;
 
 typedef struct {
-  Vertex *vertices;
+  ModelVertex *vertices;
   int *face_vertices;
   uint32_t vertex_count;
   uint32_t face_count;
