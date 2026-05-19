@@ -43,6 +43,7 @@ void create_rasterization_pipeline(
   pipeline->framebuffer = SDL_CreateSurface(w, h, SDL_PIXELFORMAT_RGBA32);
   pipeline->topology = create_info->topology;
   pipeline->vertex_shader = create_info->vertex_shader;
+  pipeline->interpolate_shader = create_info->interpolate_shader;
   pipeline->fragment_shader = create_info->fragment_shader;
 }
 
@@ -61,9 +62,8 @@ float signed_triangle_area(int32_t ax, int32_t ay, int32_t bx, int32_t by,
 }
 
 void pipeline_triangle_aabb(RasterizationPipeline *pipeline, Vec3 a, Vec3 b,
-                            Vec3 c, const InterpolationVertex *vertex_a,
-                            const InterpolationVertex *vertex_b,
-                            const InterpolationVertex *vertex_c) {
+                            Vec3 c, const void *vertex_a, const void *vertex_b,
+                            const void *vertex_c) {
   float min_x = min(a.x, min(b.x, c.x));
   float min_y = min(a.y, min(b.y, c.y));
   float max_x = max(a.x, max(b.x, c.x));
@@ -85,7 +85,7 @@ void pipeline_triangle_aabb(RasterizationPipeline *pipeline, Vec3 a, Vec3 b,
         continue;
       }
 
-      float z = (alpha * a.z + beta * b.z + gamma * c.z);
+      float z = (alpha * a.z + beta * b.z + gamma * c.z) / 255.0f;
 
       float cmp_z;
       image_get(&pipeline->z_buffer, x, y, &cmp_z);
@@ -103,17 +103,31 @@ void pipeline_triangle_aabb(RasterizationPipeline *pipeline, Vec3 a, Vec3 b,
         Vec3 z_color = {z, z, z};
         set_color(pipeline->framebuffer, x, y, &z_color);
       } else {
-        
-        Vec2 interpolated_uv = {
-            BURNRAST_INTERPOLATE2(vertex_a->uv, vertex_b->uv, vertex_c->uv)};
-        Vec3 interpolated_normal = {BURNRAST_INTERPOLATE3(
-            vertex_a->normal, vertex_b->normal, vertex_c->normal)};
+        // Buffer for interpolated vertex
+        uint8_t buf[128];
+
+        InterpolateInput interp_input = {
+                    .alpha = alpha,
+                    .beta = beta,
+                    .gamma = gamma,
+                };
+        pipeline->interpolate_shader(buf, vertex_a, vertex_b, vertex_c,
+                                     &interp_input);
+        Vec2 interpolated_uv = {};
+        // BURNRAST_INTERPOLATE2(vertex_a->uv, vertex_b->uv, vertex_c->uv)};
+        Vec3 interpolated_normal =
+            {}; // BURNRAST_INTERPOLATE3(
+                // vertex_a->normal, vertex_b->normal, vertex_c->normal)};
 
         InterpolatedVertex interpolated = {};
         interpolated.uv = interpolated_uv;
         interpolated.normal = interpolated_normal;
         // set_color(pipeline->canvas, x, y, &interpolated.color);
-        Vec3 frag_color = pipeline->fragment_shader(frag_coord, &interpolated);
+
+        FragmentInput frag_input = {};
+        Vec3 frag_color = pipeline->fragment_shader(&buf, &frag_input);
+        // Vec3 frag_color = pipeline->fragment_shader(frag_coord,
+        // &interpolated);
         set_color(pipeline->framebuffer, x, y, &frag_color);
       }
     }
@@ -167,10 +181,8 @@ void triangle_outline(RasterizationPipeline *pipeline, Vec3 a, Vec3 b, Vec3 c,
 }
 
 void rasterize(RasterizationPipeline *pipeline, const Vec4 clip0,
-               const Vec4 clip1, const Vec4 clip2,
-               const InterpolationVertex *vertex_a,
-               const InterpolationVertex *vertex_b,
-               const InterpolationVertex *vertex_c) {
+               const Vec4 clip1, const Vec4 clip2, const void *vertex_a,
+               const void *vertex_b, const void *vertex_c) {
   Vec4 ndc[3] = {
       {
           clip0.x / clip0.w,
@@ -227,9 +239,9 @@ void pipeline_draw(RasterizationPipeline *pipeline, const Model *model) {
     InterpolationVertex a = {};
     InterpolationVertex b = {};
     InterpolationVertex c = {};
-    Vec4 clip_a = pipeline->vertex_shader(pipeline, vertex_a, &a);
-    Vec4 clip_b = pipeline->vertex_shader(pipeline, vertex_b, &b);
-    Vec4 clip_c = pipeline->vertex_shader(pipeline, vertex_c, &c);
+    Vec4 clip_a = pipeline->vertex_shader(vertex_a, &a);
+    Vec4 clip_b = pipeline->vertex_shader(vertex_b, &b);
+    Vec4 clip_c = pipeline->vertex_shader(vertex_c, &c);
 
     rasterize(pipeline, clip_a, clip_b, clip_c, &a, &b, &c);
   }

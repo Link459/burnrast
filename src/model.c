@@ -19,6 +19,10 @@ bool is_normal(const char *current) {
 
 Model load_model(const char *filepath) {
   FILE *file = fopen(filepath, "r");
+  if (!file) {
+    printf("Failed to open path: %s\n", filepath);
+        exit(-1);
+  }
 
   ssize_t read = 0;
   size_t len = 0;
@@ -27,6 +31,7 @@ Model load_model(const char *filepath) {
   uint32_t position_count = 0;
   uint32_t normal_count = 0;
   uint32_t uv_count = 0;
+
 
   uint32_t face_count = 0;
   while ((read = getline(&current_line, &len, file) != -1)) {
@@ -113,8 +118,6 @@ Model load_model(const char *filepath) {
       vertices[current_vertex + 0].normal = normals[normal[0] - 1];
       vertices[current_vertex + 1].normal = normals[normal[1] - 1];
       vertices[current_vertex + 2].normal = normals[normal[2] - 1];
-
-      
 
       face_vertices[current_vertex + 0] = current_vertex + 0;
       face_vertices[current_vertex + 1] = current_vertex + 1;

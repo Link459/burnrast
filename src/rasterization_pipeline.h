@@ -15,6 +15,7 @@ typedef enum {
 typedef struct {
   PrimitiveTopology topology;
   VertexShader vertex_shader;
+  InterpolateShader interpolate_shader;
   FragmentShader fragment_shader;
 } RasterizationPipelineCreateInfo;
 
@@ -25,14 +26,11 @@ typedef struct RasterizationPipeline {
   Image z_buffer;
   PrimitiveTopology topology;
   VertexShader vertex_shader;
+  InterpolateShader interpolate_shader;
   FragmentShader fragment_shader;
 } RasterizationPipeline;
 
-typedef struct InterpolatedVertex {
-  Vec2 uv;
-  Vec3 normal;
-} InterpolatedVertex;
-typedef InterpolatedVertex InterpolationVertex;
+
 
 void create_rasterization_pipeline(
     uint32_t w, uint32_t h, const RasterizationPipelineCreateInfo *create_info,

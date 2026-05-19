@@ -74,9 +74,12 @@ Mat4 normal_transform = {};
 
 Image color_tex;
 Image normal_tex;
+Image tangent_normal_tex;
 
-Vec4 simple_vertex_shader(const struct RasterizationPipeline *pipeline,
-                          struct Vertex *vertex,
+Vec3 tri[3];
+uint32_t current_tri = 0;
+
+Vec4 simple_vertex_shader(struct Vertex *vertex,
                           InterpolationVertex *interpolated_vertex) {
   Vec4 res = {
       vertex->position.x,
@@ -93,16 +96,36 @@ Vec4 simple_vertex_shader(const struct RasterizationPipeline *pipeline,
   // res = glms_mat4_mulv(view, res);
   res = glms_mat4_mulv(projection, res);
 
+  tri[current_tri] = glms_vec3_make(&res.x);
+  current_tri = (current_tri + 1) % 3;
+
   return res;
 }
 
-Vec3 simple_fragment_shader(IVec2 frag_coord, const InterpolatedVertex *v) {
+void simple_interpolation_shader(void *final, const void *a, const void *b,
+                                 const void *c, const InterpolateInput *input) {
+  const InterpolatedVertex *v_a = a;
+  const InterpolatedVertex *v_b = b;
+  const InterpolatedVertex *v_c = c;
+  float alpha = input->alpha;
+  float beta = input->beta;
+  float gamma = input->gamma;
 
+  Vec3 normal = {BURNRAST_INTERPOLATE3(v_a->normal, v_b->normal, v_c->normal)};
+  Vec2 uv = {BURNRAST_INTERPOLATE2(v_a->uv, v_b->uv, v_c->uv)};
+  InterpolatedVertex v_final = {.uv = uv, .normal = normal};
+  memcpy(final, &v_final, sizeof(InterpolatedVertex));
+  // memcpy(final + sizeof(Vec2), &normal, sizeof(Vec3));
+}
+
+Vec3 simple_fragment_shader(void *vertex, const FragmentInput *input) {
+  InterpolatedVertex *v = vertex;
   // Vec3 normal = v->normal;
-  Vec3 normal = image_sample_normal(&normal_tex, v->uv);
+  Vec3 normal = glms_mat4_mulv3(normal_transform,
+                                image_sample_normal(&normal_tex, v->uv), 1.0);
 
   float ambient = 0.3f;
-  Vec3 l = {0.0f, 1.0f, 1.0f};
+  Vec3 l = {1.0f, 1.0f, 1.0f};
   l = glms_normalize(l);
   float NoL = glms_dot(normal, l);
   float diffuse = fmax(0.0, NoL);
@@ -125,15 +148,22 @@ int main() {
   uint32_t w = 640;
   SDL_Window *window = SDL_CreateWindow("burnrast", w, h, 0);
 
-  // Model model = load_model("assets/diable3_pose/diablo3_pose.obj");
-  Model model = load_model("assets/african_head/african_head.obj");
+  Model model = load_model("assets/diablo3_pose/diablo3_pose.obj");
+  color_tex = image_load("assets/diablo3_pose/diablo3_pose_diffuse.tga");
+  normal_tex = image_load("assets/diablo3_pose/diablo3_pose_nm.tga");
+  tangent_normal_tex =
+      image_load("assets/diablo3_pose/african_head_nm_tangent.tga");
+  /*Model model = load_model("assets/african_head/african_head.obj");
   color_tex = image_load("assets/african_head/african_head_diffuse.tga");
   normal_tex = image_load("assets/african_head/african_head_nm.tga");
+  tangent_normal_tex =
+      image_load("assets/african_head/african_head_nm_tangent.tga");*/
   // Model model = load_model("assets/boggie/body.obj");
 
   RasterizationPipelineCreateInfo create_info = {
       .topology = PRIMITIVE_TOPOLOGY_TRIANGLE,
       .vertex_shader = simple_vertex_shader,
+      .interpolate_shader = simple_interpolation_shader,
       .fragment_shader = simple_fragment_shader,
   };
   RasterizationPipeline pipeline = {};
@@ -201,7 +231,7 @@ int main() {
     dt /= 1000000.0f;
     printf("fps: %f, Frame Time: %f\n", 1.0 / (dt / 1000.0f), dt);
 
-    // a += 0.03f;
+    a += 0.03f;
     transform = glms_rotate(glms_mat4_identity(), a, axis);
     normal_transform = glms_mat4_inv(glms_mat4_transpose(transform));
 

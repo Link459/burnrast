@@ -12,6 +12,12 @@ typedef struct Vertex {
   Vec3 normal;
 } Vertex;
 
+typedef struct InterpolatedVertex {
+  Vec2 uv;
+  Vec3 normal;
+} InterpolatedVertex;
+typedef InterpolatedVertex InterpolationVertex;
+
 typedef struct {
   Vertex *vertices;
   int *face_vertices;

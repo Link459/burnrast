@@ -7,10 +7,20 @@ struct RasterizationPipeline;
 struct InterpolatedVertex;
 struct Vertex;
 
-typedef Vec4 (*VertexShader)(const struct RasterizationPipeline *,
-                             struct Vertex *vertex,
+typedef struct {
+  IVec2 frag_coord;
+} FragmentInput;
+
+typedef struct {
+  float alpha;
+  float beta;
+  float gamma;
+} InterpolateInput;
+
+typedef Vec4 (*VertexShader)(struct Vertex *vertex,
                              struct InterpolatedVertex *interpolated_vertex);
-typedef Vec3 (*FragmentShader)(IVec2 frag_coord,
-                               const struct InterpolatedVertex *v);
+typedef void (*InterpolateShader)(void *final, const void *a, const void *b,
+                                  const void *c, const InterpolateInput *input);
+typedef Vec3 (*FragmentShader)(void *vertex, const FragmentInput *input);
 
 #endif /* SHADER_H */
